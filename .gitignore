@@ -1,0 +1,12 @@
+# Ignore heavy audio data and truth files
+data/
+
+# Ignore heavy neural network checkpoints
+models/
+
+# Ignore messy temporary outputs
+score/raw_output.txt
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
