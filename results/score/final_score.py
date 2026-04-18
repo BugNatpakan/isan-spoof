@@ -2,10 +2,10 @@ import numpy as np
 import os
 
 # 1. Update these paths if necessary
-raw_score_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\eval_results_raw.txt"
-cleaned_score_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\eval_scores.txt"
+raw_score_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\score\eval_results_raw.txt"
+cleaned_score_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\score\eval_scores.txt"
 truth_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\asvspoof2019\ASVspoof2019.LA.cm.eval.trl.txt"
-final_report_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\eer_report.txt"
+final_report_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\E1_report.txt"
 
 def clean_raw_scores():
     if not os.path.exists(raw_score_file):
@@ -78,7 +78,7 @@ def calculate_eer():
         f"Matched {len(y_true)} files.\n"
         f"-------------------------------\n"
         f"EER: {eer:.4f}%\n"
-        f"-------------------------------\n"
+        f"-------------------------------"
     )
     
     print(report)
