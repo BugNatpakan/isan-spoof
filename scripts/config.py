@@ -30,7 +30,7 @@ val_set_name = 'isan_project_val'
 
 # for convenience
 #  we will use resources in this directory
-data_root = r'D:\work\AI frontier\project AntiSpoof\isan-spoof\data\asvspoof2019'
+data_root = r'D:\work\AI frontier\project AntiSpoof\isan-spoof\data\experiment\E1'
 
 # File lists (text file, one data name per line, without name extension)
 # trin_file_list: list of files for training set
@@ -109,14 +109,14 @@ test_set_name = 'isan_project_test'
 
 # List of test set data
 # for convenience, you may directly load test_set list here
-test_list = data_root + r'\scp\eval.lst'
+test_list = data_root + r'\eval.lst'
 
 # Directories for input features
 # input_dirs = [path_of_feature_1, path_of_feature_2, ..., ]
 # directory of the evaluation set waveform
 test_input_dirs = [data_root + r'\wav_eval']
 
-test_optional_argument = [data_root + r'\ASVspoof2019.LA.cm.eval.trl.txt']
+test_optional_argument = [data_root + r'\metadata.eval.txt']
 
 # Directories for output features, which are []
 test_output_dirs = []
