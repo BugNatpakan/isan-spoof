@@ -40,7 +40,7 @@ import core_scripts.startup_config as nii_startup
 
 # for inference
 # cd "D:\work\AI frontier\project AntiSpoof\isan-spoof\scripts" 
-# python main.py --inference --model-forward-with-file-name --trained-model ../model/trained_network.pt --save-trained-name ../results/scores/eval_scores.txt --batch-size 1 > ../results_eval_results_raw.txt
+# python main.py --inference --model-forward-with-file-name --trained-model ../models/lcnn/trained_network.pt --save-trained-name ../results/E2_scores/eval_scores.txt --batch-size 1 > ../results/E2_scores/results_eval_results_raw.txt
 
 # for scoring
 # python "D:\work\AI frontier\project AntiSpoof\isan-spoof\results\final_score.py"
