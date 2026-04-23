@@ -10,3 +10,5 @@ score/raw_output.txt
 # Ignore Python cache files
 __pycache__/
 *.pyc
+
+tempCodeRunnerFile.py
