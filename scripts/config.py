@@ -30,7 +30,7 @@ val_set_name = 'isan_project_val'
 
 # for convenience
 #  we will use resources in this directory
-data_root = r'D:\work\AI frontier\project AntiSpoof\isan-spoof\data\experiment\E1'
+data_root = os.environ.get('DATA_ROOT', r'D:\work\AI frontier\project AntiSpoof\isan-spoof\data\ASVspoof_2019_LA')
 
 # File lists (text file, one data name per line, without name extension)
 # trin_file_list: list of files for training set
@@ -42,7 +42,7 @@ val_list = data_root + r'\scp\dev.lst'
 # input_dirs = [path_of_feature_1, path_of_feature_2, ..., ]
 #  we assume train and validation data are put in the same sub-directory
 #  here, we only use waveform as input to the code
-input_dirs = [data_root + r'\wav_trn_dev']
+input_dirs = [data_root + r'\wav_all']
 
 # Dimensions of input features
 #  input_dims = [dimension_of_feature_1, dimension_of_feature_2, ...]
@@ -97,8 +97,11 @@ minimum_len = None
 # Optional argument
 #  We will use this optional_argument to read protocol file
 #  When evaluating on a eval set without protocol file, set this to ['']
-optional_argument = [data_root + r'\ASVspoof2019.LA.cm.trn.dev.txt']
-val_optional_argument = [data_root + r'\ASVspoof2019.LA.cm.trn.dev.txt']
+#  (Modified to accept protocol files from PowerShell)
+train_protocol = os.environ.get('TRAIN_PROTO', r'\ASVspoof2019.LA.cm.trn.dev.txt')
+
+optional_argument = [data_root + train_protocol]
+val_optional_argument = [data_root + train_protocol]
 
 #########################################################
 ## Configuration for inference stage
@@ -109,14 +112,17 @@ test_set_name = 'isan_project_test'
 
 # List of test set data
 # for convenience, you may directly load test_set list here
-test_list = data_root + r'\eval.lst'
+list_filename = os.environ.get('LIST_NAME', 'eval.lst')
+
+test_list = data_root + r"\scp" + "\\" + list_filename
 
 # Directories for input features
 # input_dirs = [path_of_feature_1, path_of_feature_2, ..., ]
 # directory of the evaluation set waveform
-test_input_dirs = [data_root + r'\wav_eval']
+test_input_dirs = [data_root + r'\wav_all']
 
-test_optional_argument = [data_root + r'\metadata.eval.txt']
+test_protocol = os.environ.get('TEST_PROTO', r'\metadata.eval.txt')
+test_optional_argument = [data_root + test_protocol]
 
 # Directories for output features, which are []
 test_output_dirs = []
