@@ -5,7 +5,7 @@
 *.parquet
 
 # Ignore heavy neural network checkpoints
-*.pt
+epoch_*.pt
 
 # Ignore messy temporary outputs
 results/
@@ -16,3 +16,4 @@ __pycache__/
 
 tempCodeRunnerFile.*
 *.tar.gz
+scripts/*.dic
