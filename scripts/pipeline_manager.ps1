@@ -25,17 +25,36 @@ $EvalListName   = "eval.lst"
 
 function Run-Train {
     param ([string]$ExpName)
+    $env:PYTHONUNBUFFERED = "1"
     $TargetDir       = "$ExpDir\$ExpName"
     $env:DATA_ROOT   = $TargetDir
     $env:TRAIN_PROTO = "\" + $TrainProtoName
     $env:LIST_NAME   = $TrainListName
     $SaveModelDir    = "$ModelsDir\$ExpName"
 
+    $useE1Model = @( "E1.5", "E2")
+    $useE4Model = @( "E5", "E6")
+    if ($ExpName -in $useE1Model) {
+        write-host "[INFO] Using pre-trained E1 model for $ExpName" -ForegroundColor Cyan
+        return "$ModelsDir\E1\trained_network.pt"
+    }
+    if ($ExpName -in $useE4Model) {
+        write-host "[INFO] Using pre-trained E4 model for $ExpName" -ForegroundColor Cyan
+        return "$ModelsDir\E4\trained_network.pt"
+    }
+
     Write-Host "`n[+] [TRAIN] Starting Training for: $ExpName" -ForegroundColor Yellow
     Write-Host "    -> Data Root : $($env:DATA_ROOT)" -ForegroundColor DarkGray
     
+
+    # Ensure the model save directory exists before Python tries to use it!
+    if (-not (Test-Path -Path $SaveModelDir)) {
+        Write-Host "[i] Creating missing model directory: $SaveModelDir" -ForegroundColor Yellow
+        New-Item -ItemType Directory -Path $SaveModelDir -Force | Out-Null
+    }
+
     Set-Location -Path "$ScriptDir"
-    $TrainCommand = 'python main.py --epochs 10 --batch-size 8 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name'
+    $TrainCommand = 'python -u main.py --epochs 10 --batch-size 8 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name'
     
     if ($DRY_RUN) {
         Write-Host "[DRY RUN] Would execute: $TrainCommand" -ForegroundColor Magenta
@@ -49,23 +68,30 @@ function Run-Train {
 }
 
 function Run-Inference {
-    param ([string]$ExpName)
+    param ([string]$ExpName,
+           [string]$ModelPath = "")
     $TargetDir      = "$ExpDir\$ExpName"
     $env:DATA_ROOT  = $TargetDir
     $env:TEST_PROTO = "\" + $EvalProtoName
     $env:LIST_NAME  = $EvalListName
-    
-    if ($EXPName -eq "E1" -or $EXPName -eq "E1.5" -or $ExpName -eq "E2" ) {
-        $ModelPath = "$ModelsDir\E1\trained_network.pt"
+        
+    if ($ModelPath -eq "") {
+        $useE1Model = @("E1", "E1.5", "E2")
+        $useE4Model = @("E4", "E5", "E6")
+        
+        if ($ExpName -in $useE1Model) {
+            $ModelPath = "$ModelsDir\E1\trained_network.pt"
+        } elseif ($ExpName -in $useE4Model) {
+            $ModelPath = "$ModelsDir\E4\trained_network.pt"
+        } else {
+            $ModelPath = "$ModelsDir\$ExpName\trained_network.pt"
+        }
     }
-    elseif ($EXPName -eq "E4" -or $EXPName -eq "E5" -or $ExpName -eq "E6") {
-        $ModelPath = "$ModelsDir\E4\trained_network.pt"
-    }
-    else {
-        $ModelPath = "$ModelsDir\$ExpName\trained_network.pt"
-    }
-    $Timestamp = Get-Date -Format "ddMMyyyy_HHmmss"
-    
+
+    Write-Host "Running inference using model: $ModelPath"
+
+    $Timestamp = Get-Date -Format "ddMMyyyy_HHmmss"     
+
     $OutputDir = "$ResultsDir\$ExpName"
     if (!(Test-Path "$OutputDir")) { New-Item -ItemType Directory -Path "$OutputDir" -Force | Out-Null }
     $SaveResultLoc = "$OutputDir\results_${Timestamp}_raw.txt"
@@ -154,7 +180,7 @@ function Run-FullExperiment {
     Write-Host "==========================================" -ForegroundColor Green
     
     $modelPath = Run-Train -ExpName $ExpName
-    $scorePath = Run-Inference -ExpName $ExpName
+    $scorePath = Run-Inference -ExpName $ExpName -ModelPath $modelPath
     Run-Scoring -ScoreFile $scorePath -ExpName $ExpName
 
     Write-Host "`n[SUCCESS] EXPERIMENT $ExpName COMPLETED!" -ForegroundColor Green
