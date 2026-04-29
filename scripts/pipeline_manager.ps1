@@ -1,257 +1,227 @@
 # ====================================================================
-# Anti-Spoof Project Pipeline Manager
+# Anti-Spoof Pipeline Manager V3 (Self-Contained Experiment Structure)
 # ====================================================================
 
-# --- Define Global Paths ---
-$BaseDir = "D:\work\AI frontier\project AntiSpoof\isan-spoof"
-$ScriptDir = "$BaseDir\scripts"
-$ResultsDir = "$BaseDir\results"
-$ModelsDir = "$BaseDir\models\lcnn"
-$ScoringScript = "$BaseDir\results\final_score.py"
+$DRY_RUN       = $false   # Set to $false to run actual python scripts
 
-# --- Helper Function for Inference ---
-function Run-Inference {
-    param (
-        [string]$TrainDatasetName,
-        [string]$TestDatasetName,
-        [string]$TestDataRoot,
-        [string]$TestProtocol
-    )
+# --- GLOBAL PATHS ---
+$BaseDir       = "D:\work\AI frontier\project AntiSpoof\isan-spoof"
+$ScriptDir     = "$BaseDir\scripts"
+$ResultsDir    = "$BaseDir\results"
+$ModelsDir     = "$BaseDir\models\lcnn"
+$ScoringScript = "$BaseDir\results\final_score.py"
+$ExpDir        = "$BaseDir\data\experiment"
+
+# --- DEFAULT FILENAMES INSIDE EACH 'E' FOLDER ---
+# (Change these if you named your lists differently inside the E folders)
+$TrainProtoName = "metadata.train.txt"
+$TrainListName  = "train.lst"
+$EvalProtoName  = "metadata.eval.txt"
+$EvalListName   = "eval.lst"
+
+# ---------------------------------------------------------
+# HELPER FUNCTIONS
+# ---------------------------------------------------------
+
+function Run-Train {
+    param ([string]$ExpName)
+    $TargetDir       = "$ExpDir\$ExpName"
+    $env:DATA_ROOT   = $TargetDir
+    $env:TRAIN_PROTO = "\" + $TrainProtoName
+    $env:LIST_NAME   = $TrainListName
+    $SaveModelDir    = "$ModelsDir\$ExpName"
+
+    Write-Host "`n[+] [TRAIN] Starting Training for: $ExpName" -ForegroundColor Yellow
+    Write-Host "    -> Data Root : $($env:DATA_ROOT)" -ForegroundColor DarkGray
     
-    # Generate a timestamp (DayMonthYear_HourMinSec)
+    Set-Location -Path "$ScriptDir"
+    $TrainCommand = 'python main.py --epochs 10 --batch-size 8 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name'
+    
+    if ($DRY_RUN) {
+        Write-Host "[DRY RUN] Would execute: $TrainCommand" -ForegroundColor Magenta
+        if (!(Test-Path "$SaveModelDir")) { New-Item -ItemType Directory -Path "$SaveModelDir" -Force | Out-Null }
+        "Mock" | Out-File -FilePath "$SaveModelDir\trained_network.pt" -Encoding utf8
+    } else {
+        Write-Host $TrainCommand
+        Invoke-Expression $TrainCommand
+    }
+    return "$SaveModelDir\trained_network.pt"
+}
+
+function Run-Inference {
+    param ([string]$ExpName)
+    $TargetDir      = "$ExpDir\$ExpName"
+    $env:DATA_ROOT  = $TargetDir
+    $env:TEST_PROTO = "\" + $EvalProtoName
+    $env:LIST_NAME  = $EvalListName
+    
+    if ($EXPName -eq "E1" -or $EXPName -eq "E1.5" -or $ExpName -eq "E2" ) {
+        $ModelPath = "$ModelsDir\E1\trained_network.pt"
+    }
+    elseif ($EXPName -eq "E4" -or $EXPName -eq "E5" -or $ExpName -eq "E6") {
+        $ModelPath = "$ModelsDir\E4\trained_network.pt"
+    }
+    else {
+        $ModelPath = "$ModelsDir\$ExpName\trained_network.pt"
+    }
     $Timestamp = Get-Date -Format "ddMMyyyy_HHmmss"
     
-    $ModelPath = "$ModelsDir\$TrainDatasetName\trained_network.pt"
-    
-    # Nested output directory
-    $OutputDir = "$ResultsDir\$TrainDatasetName\$TestDatasetName"
-    
-    # The file where inference scores will be saved (raw at the end)
-    $SaveResultLoc = "$OutputDir\eval_results_${Timestamp}_raw.txt"
-
-    # Ensure the nested output directory exists
+    $OutputDir = "$ResultsDir\$ExpName"
     if (!(Test-Path "$OutputDir")) { New-Item -ItemType Directory -Path "$OutputDir" -Force | Out-Null }
+    $SaveResultLoc = "$OutputDir\results_${Timestamp}_raw.txt"
 
-    Write-Host "`n[+] Starting Inference Phase" -ForegroundColor Yellow
-    Write-Host " -> Using Model: $TrainDatasetName" -ForegroundColor Cyan
-    Write-Host " -> Evaluating On: $TestDatasetName" -ForegroundColor Cyan
-    Write-Host " -> Saving Scores To: `"$SaveResultLoc`"" -ForegroundColor Cyan
-
-    # Set the Python environment variables for config.py
-    $env:DATA_ROOT = "$TestDataRoot"
-    $env:TEST_PROTO = "$TestProtocol"
-
+    Write-Host "`n[+] [INFERENCE] Evaluating Model for: $ExpName" -ForegroundColor Yellow
+    Write-Host "    -> Test Root : $($env:DATA_ROOT)" -ForegroundColor DarkGray
+    
     Set-Location -Path "$ScriptDir"
-    
-    # Run the Python inference script and redirect ALL output to the results text file
-    # comment below line to dry run
-    # python main.py --inference --model-forward-with-file-name --trained-model "$ModelPath" --batch-size 1 > "$SaveResultLoc"
-    
-    # uncomment below lines to mock the inference output for testing the scoring script without running actual inference
+    $InfCommand = 'python main.py --inference --model-forward-with-file-name --trained-model "' + $ModelPath + '" --batch-size 1 > "' + $SaveResultLoc + '"'
+
     # ------------------ DRY RUN ------------------
-    Write-Host "[DRY RUN] python main.py --inference --model-forward-with-file-name --trained-model `"$ModelPath`" --batch-size 1 > `"$SaveResultLoc`"" -ForegroundColor Magenta
-    Write-Host "[DRY RUN] Would execute: python main.py --inference --trained-model `"$ModelPath`" > `"$SaveResultLoc`"" -ForegroundColor Magenta        
-    
-    $MetaPath = "$TestDataRoot$TestProtocol"
-    if (Test-Path "$MetaPath") {
-        Write-Host "[DRY RUN] Generating mock scores (Exactly 20.00% EER) using IDs from $TestProtocol..." -ForegroundColor Magenta
+    if ($DRY_RUN) {
+        Write-Host "[DRY RUN] Would execute: python main.py --inference ..." -ForegroundColor Magenta
         
-        # Read the whole file to cleanly separate 100 Reals and 100 Fakes
-        $allLines = Get-Content "$MetaPath"
-        $bonafides = @($allLines | Where-Object { $_.ToLower().Contains("bonafide") } | Select-Object -First 100)
-        $spoofs = @($allLines | Where-Object { -not $_.ToLower().Contains("bonafide") } | Select-Object -First 100)
+        # FIX: Using the correct V3 variables for the path!
+        $MetaPath = "$TargetDir\$EvalProtoName"
         
-        $mockScores = @()
-        
-        # Process the 100 Bonafide files (Force exactly 20 to be "wrong")
-        for ($i = 0; $i -lt $bonafides.Count; $i++) {
-            $id = ($bonafides[$i] -split '\s+')[1]
-            # First 20 get a spoof score (-1.0), the other 80 get a real score (1.0)
-            $score = if ($i -lt 20) { -1.0 } else { 1.0 }
-            $mockScores += "Output, $id, -, $score"
+        if (Test-Path "$MetaPath") {
+            $allLines = Get-Content "$MetaPath"
+            Write-Host "    -> Read $($allLines.Count) total lines from $MetaPath" -ForegroundColor DarkGray
+            
+            # Check for both "bonafide" AND "genuine" just in case
+            $bonafides = @($allLines | Where-Object { $_.ToLower().Contains("bonafide") -or $_.ToLower().Contains("genuine") } | Select-Object -First 100)
+            $spoofs = @($allLines | Where-Object { -not $_.ToLower().Contains("bonafide") -and -not $_.ToLower().Contains("genuine") } | Select-Object -First 100)
+            
+            Write-Host "    -> Found $($bonafides.Count) Real and $($spoofs.Count) Spoof files to mock." -ForegroundColor DarkGray
+            
+            if ($bonafides.Count -eq 0 -or $spoofs.Count -eq 0) {
+                Write-Host "[!] WARNING: Could not find any Bonafide/Spoof lines! Check if the metadata file is empty." -ForegroundColor Red
+            }
+
+            $mockScores = [System.Collections.ArrayList]::new()
+            
+            # Process the Bonafide files (Force exactly 20 to be "wrong")
+            for ($i = 0; $i -lt $bonafides.Count; $i++) {
+                $id = ($bonafides[$i] -split '\s+')[1]
+                $score = if ($i -lt 20) { -1.0 } else { 1.0 }
+                [void]$mockScores.Add("Output, $id, -, $score")
+            }
+            
+            # Process the Spoof files (Force exactly 20 to be "wrong")
+            for ($i = 0; $i -lt $spoofs.Count; $i++) {
+                $id = ($spoofs[$i] -split '\s+')[1]
+                $score = if ($i -lt 20) { 1.0 } else { -1.0 }
+                [void]$mockScores.Add("Output, $id, -, $score")
+            }
+            
+            # Write to the file
+            $mockScores | Out-File -FilePath "$SaveResultLoc" -Encoding utf8
+            Write-Host "    -> SUCCESS: Saved $($mockScores.Count) mock scores to: $SaveResultLoc" -ForegroundColor Cyan
+
+        } else {
+            Write-Host "[!] DRY RUN ERROR: Could not find metadata at $MetaPath" -ForegroundColor Red
         }
-        
-        # Process the 100 Spoof files (Force exactly 20 to be "wrong")
-        for ($i = 0; $i -lt $spoofs.Count; $i++) {
-            $id = ($spoofs[$i] -split '\s+')[1]
-            # First 20 get a real score (1.0), the other 80 get a spoof score (-1.0)
-            $score = if ($i -lt 20) { 1.0 } else { -1.0 }
-            $mockScores += "Output, $id, -, $score"
-        }
-        
-        $mockScores | Out-File -FilePath "$SaveResultLoc" -Encoding utf8
     } else {
-        Write-Host "[!] DRY RUN ERROR: Could not find metadata at $MetaPath to generate IDs." -ForegroundColor Red
+        Invoke-Expression $InfCommand
+        Write-Host $InfCommand
     }
     # ---------------- END DRY RUN ----------------
 
-
-    Write-Host "`n[+] Inference Complete. Scores saved to `"$SaveResultLoc`"" -ForegroundColor Green
+    return $SaveResultLoc
 }
 
-# --- Helper Function for Inference Menu ---
-function Show-InferenceDatasetMenu {
-    param([string]$SelectedTrainDataset)
+function Run-Scoring {
+    param ([string]$ScoreFile, [string]$ExpName)
+    $MetaPath = "$ExpDir\$ExpName\" + $EvalProtoName
+    
+    Write-Host "`n[+] [SCORING] Calculating EER for $ExpName..." -ForegroundColor Yellow
+    Write-Host "    -> Score File: $ScoreFile" -ForegroundColor Cyan
+    
+    $ScoreCommand = 'python "' + $ScoringScript + '" --score-file "' + $ScoreFile + '" --meta-file "' + $MetaPath + '"'
 
-    Write-Host "`n==========================================" -ForegroundColor Cyan
-    Write-Host "   Select Inference Dataset (Test Set)" -ForegroundColor Cyan
-    Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "1. ASVspoof 2019 LA"
-    Write-Host "2. Thai Central (Bonafide + Spoof)"
-    Write-Host "3. Isan (Bonafide + Spoof)"
-    Write-Host "4. typhoon_isan (Test Split) + isan_tts_spoofs (Test Split)"
-    Write-Host "5. Back to Main Menu"
-    
-    $infChoice = Read-Host "Please select an option (1-5)"
-    
-    # NOTE: Update the DataRoot and Protocol text files to match your actual folders
-    switch ($infChoice) {
-        "1" { Run-Inference -TrainDatasetName $SelectedTrainDataset -TestDatasetName "ASVspoof_2019_LA" -TestDataRoot "$BaseDir\data\ASVspoof_2019_LA" -TestProtocol "\metadata.eval.txt" }
-        "2" { Run-Inference -TrainDatasetName $SelectedTrainDataset -TestDatasetName "Thai_Central" -TestDataRoot "$BaseDir\data\Thai" -TestProtocol "\metadata_thai.eval.txt" }
-        "3" { Run-Inference -TrainDatasetName $SelectedTrainDataset -TestDatasetName "Isan" -TestDataRoot "$BaseDir\data\Isan" -TestProtocol "\metadata_isan.eval.txt" }
-        "4" { Run-Inference -TrainDatasetName $SelectedTrainDataset -TestDatasetName "Typhoon_Isan_TTS" -TestDataRoot "$BaseDir\data\Typhoon" -TestProtocol "\metadata_typhoon.eval.txt" }
-        "5" { return }
-        Default { Write-Host "Invalid selection." -ForegroundColor Red }
+    $DRY_RUN = $false # Force actual scoring to run since it's fast and we want to see results
+    if ($DRY_RUN) {
+        Write-Host "[DRY RUN] Would execute: $ScoreCommand" -ForegroundColor Magenta
+    } else {
+        Invoke-Expression $ScoreCommand
+        Write-Host $ScoreCommand
     }
 }
 
-# --- Main Menu Loop ---
+function Run-FullExperiment {
+    param ([string]$ExpName)
+    Write-Host "`n==========================================" -ForegroundColor Green
+    Write-Host "   STARTING FULL EXPERIMENT: $ExpName" -ForegroundColor Green
+    Write-Host "==========================================" -ForegroundColor Green
+    
+    $modelPath = Run-Train -ExpName $ExpName
+    $scorePath = Run-Inference -ExpName $ExpName
+    Run-Scoring -ScoreFile $scorePath -ExpName $ExpName
+
+    Write-Host "`n[SUCCESS] EXPERIMENT $ExpName COMPLETED!" -ForegroundColor Green
+}
+
+# ---------------------------------------------------------
+# MAIN MENU
+# ---------------------------------------------------------
+
+function Select-Experiment {
+    Write-Host "`n--- Select Experiment ---" -ForegroundColor Cyan
+    Write-Host "1. E1"
+    Write-Host "2. E1.5"
+    Write-Host "3. E2"
+    Write-Host "4. E3"
+    Write-Host "5. E4"
+    $choice = Read-Host "Select number"
+    switch ($choice) {
+        "1" { return "E1" } "2" { return "E1.5" } "3" { return "E2" }
+        "4" { return "E3" } "5" { return "E4" } Default { return "" }
+    }
+}
+
 $keepRunning = $true
 while ($keepRunning) {
     Write-Host "`n==========================================" -ForegroundColor Cyan
-    Write-Host "   ANTI-SPOOF PROJECT PIPELINE MANAGER" -ForegroundColor Cyan
+    Write-Host "   ANTI-SPOOF PIPELINE MANAGER V3" -ForegroundColor Cyan
+    if ($DRY_RUN) { Write-Host "   [DRY RUN MODE ENABLED]" -ForegroundColor Magenta }
     Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "1. Train model"
-    Write-Host "2. Run Inference"
-    Write-Host "3. Run Scoring"
-    Write-Host "4. Exit"
-    Write-Host "==========================================" -ForegroundColor Cyan
-
-    $mainChoice = Read-Host "Please select an option (1-4)"
+    Write-Host "1. Train an Experiment"
+    Write-Host "2. Run Inference for an Experiment"
+    Write-Host "3. Run Scoring for an Experiment"
+    Write-Host "4. Run End-to-End Experiment"
+    Write-Host "5. Exit"
+    
+    $mainChoice = Read-Host "Select an option"
 
     switch ($mainChoice) {
-        "1" {
-            # --- TRAINING MENU ---
-            Write-Host "`n==========================================" -ForegroundColor Cyan
-            Write-Host "   Select Training Dataset" -ForegroundColor Cyan
-            Write-Host "==========================================" -ForegroundColor Cyan
-            Write-Host "1. ASVspoof 2019 LA"
-            Write-Host "2. Thai Central"
-            Write-Host "3. Isan"
-            Write-Host "4. ASV + Thai Central + Isan"
-            Write-Host "5. Back"
-            
-            $trainChoice = Read-Host "Please select an option (1-4)"
-            $trainSaveDir = ""
-
-            switch ($trainChoice) {
-                # NOTE: Update the DataRoot and Protocol text files to match your actual folders
-                "1" { 
-                    $trainSaveDir = "ASVspoof_2019_LA"
-                    $env:DATA_ROOT = "$BaseDir\data\ASVspoof_2019_LA"
-                    # $env:LIST_NAME = "full.lst"  # uncomment this line to use the split list for training
-                    $env:TRAIN_PROTO = "\ASVspoof2019.LA.cm.trn.dev.txt"
-                }
-                "2" { 
-                    $trainSaveDir = "Thai_Central"
-                    $env:DATA_ROOT = "$BaseDir\data\Thai"
-                    # $env:LIST_NAME = "full.lst"  # uncomment this line to use the split list for training
-                    $env:TRAIN_PROTO = "\Thai_train_protocol.txt"
-                }
-                "3" { 
-                    $env:DATA_ROOT = "$BaseDir\data\Isan"
-                    $env:LIST_NAME = "full.lst"  # uncomment this line to use the split list for training
-                    $env:TRAIN_PROTO = "\metadata.full.txt"
-                }
-                "4" { 
-                    $trainSaveDir = "ASV_Thai_Isan"
-                    $env:DATA_ROOT = "$BaseDir\data\Combined"
-                    # $env:LIST_NAME = "full.lst"  # uncomment this line to use the split list for training
-                    $env:TRAIN_PROTO = "\Combined_train_protocol.txt"
-                }
-                "5" { continue }
-            }
-
-            if ($trainSaveDir) {
-                Write-Host "`n[+] Starting Training using data from: `"$env:DATA_ROOT`"" -ForegroundColor Yellow
-                Set-Location -Path "$ScriptDir"
-                
-                # Run the Python training script
-                # comment below line to dry run
-                python main.py --epochs 10 --batch-size 16 --save-model-dir "$ModelsDir\$trainSaveDir" --model-forward-with-file-name
-                
-                # uncomment below lines to mock the inference output for testing the scoring script without running actual inference
-                # Write-Host "[DRY RUN] python main.py --epochs 10 --batch-size 16 --save-model-dir `"$ModelsDir\$trainSaveDir`" --model-forward-with-file-name" -ForegroundColor Magenta
-                # Write-Host "[DRY RUN] Would execute: python main.py with train data `"$env:DATA_ROOT`"" -ForegroundColor Magenta
+        "1" { 
+            $exp = Select-Experiment
+            if ($exp) { Run-Train -ExpName $exp }
+        }
+        "2" { 
+            $exp = Select-Experiment
+            if ($exp) { Run-Inference -ExpName $exp }
+        }
+        "3" { 
+            $exp = Select-Experiment
+            if ($exp) {
+                # Auto-find the newest score file for this experiment
+                $expResultsDir = "$ResultsDir\$exp"
+                if (Test-Path $expResultsDir) {
+                    $newestRawFile = Get-ChildItem -Path $expResultsDir -Filter "*.txt" | Where-Object { $_.Name -like "*raw.txt" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                    if ($newestRawFile) {
+                        Write-Host "Auto-selected newest raw file: $($newestRawFile.Name)" -ForegroundColor Cyan
+                        Run-Scoring -ScoreFile $newestRawFile.FullName -ExpName $exp
+                    } else { Write-Host "No raw score files found in $expResultsDir" -ForegroundColor Red }
+                } else { Write-Host "No inference results found for $exp yet." -ForegroundColor Red }
             }
         }
-        
-        "2" {
-            # --- INFERENCE: SELECT MODEL MENU ---
-            Write-Host "`n==========================================" -ForegroundColor Cyan
-            Write-Host "   Select Model (Trained Dataset)" -ForegroundColor Cyan
-            Write-Host "==========================================" -ForegroundColor Cyan
-            Write-Host "1. ASVspoof 2019 LA"
-            Write-Host "2. Thai Central"
-            Write-Host "3. ASV + Thai Central + Isan"
-            Write-Host "4. Back"
-            
-            $modelChoice = Read-Host "Please select an option (1-4)"
-            
-            switch ($modelChoice) {
-                "1" { Show-InferenceDatasetMenu -SelectedTrainDataset "ASVspoof_2019_LA" }
-                "2" { Show-InferenceDatasetMenu -SelectedTrainDataset "Thai_Central" }
-                "3" { Show-InferenceDatasetMenu -SelectedTrainDataset "ASV_Thai_Isan" }
-                "4" { continue }
-            }
+        "4" { 
+            $exp = Select-Experiment
+            if ($exp) { Run-FullExperiment -ExpName $exp }
         }
-        
-        "3" {
-            # --- SCORING MENU ---
-            Write-Host "`n[?] Enter the path to the Score file you want to evaluate:" -ForegroundColor Yellow
-            $scoreFilePath = Read-Host "(e.g., ../results/ASVspoof_2019_LA/Isan/eval_results_raw.txt)"
-
-            Write-Host "`n==========================================" -ForegroundColor Cyan
-            Write-Host "   Select Metadata File for Scoring" -ForegroundColor Cyan
-            Write-Host "==========================================" -ForegroundColor Cyan
-            Write-Host "1. ASVspoof 2019 LA"
-            Write-Host "2. Thai Central (Bonafide + Spoof)"
-            Write-Host "3. Isan (Bonafide + Spoof)"
-            Write-Host "4. typhoon_isan (Test Split) + isan_tts_spoofs (Test Split)"
-            Write-Host "5. Back"
-
-            $metaChoice = Read-Host "Please select an option (1-5)"
-            $metaFile = ""
-
-            switch ($metaChoice) {
-                # Update these to where your scoring ground truths live
-                "1" { $metaFile = "$BaseDir\data\ASVspoof_2019_LA\metadata.eval.txt" }
-                "2" { $metaFile = "$BaseDir\data\Thai\metadata.eval.txt" }
-                "3" { $metaFile = "$BaseDir\data\Isan\metadata.eval.txt" }
-                "4" { $metaFile = "$BaseDir\data\Typhoon\metadata.eval.txt" }
-                "5" { continue }
-            }
-
-            if ($metaFile -and $scoreFilePath) {
-                Write-Host "`n[+] Running Scoring Script..." -ForegroundColor Yellow
-                
-                # comment below line to dry run
-                python "$ScoringScript" --score-file "$scoreFilePath" --meta-file "$metaFile"
-            
-                # uncomment below lines to mock the inference output for testing the scoring script without running actual inference
-                # Write-Host "[DRY RUN] python `"$ScoringScript`" --score-file `"$scoreFilePath`" --meta-file `"$metaFile`"" -ForegroundColor Magenta
-                # Write-Host "[DRY RUN] Would execute: python final_score.py --score-file `"$scoreFilePath`" --meta-file `"$metaFile`"" -ForegroundColor Magenta
-            }
-        }
-        
-        "4" {
-            # --- EXIT ---
+        "5" { 
             Write-Host "`nExiting Pipeline Manager..." -ForegroundColor Green
             $keepRunning = $false
-        }
-        
-        Default {
-            Write-Host "Invalid selection. Please try again." -ForegroundColor Red
         }
     }
 }
