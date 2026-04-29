@@ -212,9 +212,9 @@ class LFCC(torch_nn.Module):
             x_copy = x
         
         # STFT
-        x_stft = torch.stft(x_copy, self.fn, self.fs, self.fl, 
+        x_stft = torch.view_as_real(torch.stft(x_copy, self.fn, self.fs, self.fl, 
                             window=torch.hamming_window(self.fl).to(x.device), 
-                            onesided=True, pad_mode="constant", return_complex=False)        
+                            onesided=True, pad_mode="constant", return_complex=True))        
         # amplitude
         sp_amp = torch.norm(x_stft, 2, -1).pow(2).permute(0, 2, 1).contiguous()
         
@@ -343,9 +343,9 @@ class Spectrogram(torch_nn.Module):
             x[:, 1:] = x[:, 1:]  - 0.97 * x[:, 0:-1]
         
         # STFT
-        x_stft = torch.stft(x, self.fn, self.fs, self.fl, 
+        x_stft = torch.view_as_real(torch.stft(x, self.fn, self.fs, self.fl, 
                             window=torch.hamming_window(self.fl).to(x.device), 
-                            onesided=True, pad_mode="constant")        
+                            onesided=True, pad_mode="constant"))        
         # amplitude
         sp_amp = torch.norm(x_stft, 2, -1).pow(2).permute(0, 2, 1).contiguous()
         
