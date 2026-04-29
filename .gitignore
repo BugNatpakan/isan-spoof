@@ -1,8 +1,11 @@
 # Ignore heavy audio data and truth files
-data/
+*.wav
+*.flac
+*.mp3
+*.parquet
 
 # Ignore heavy neural network checkpoints
-models/
+*.pt
 
 # Ignore messy temporary outputs
 score/raw_output.txt
