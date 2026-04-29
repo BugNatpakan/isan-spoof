@@ -167,6 +167,7 @@ def main():
             # Mark this file as USED so the next split can't grab it
             used_files.add(item["file_id"])
 
+        
         # 5. SAVE SEPARATED TEXT FILES
         meta_output_path = os.path.join(DEST_META_DIR, f"metadata.{split_name}.txt")
         lst_output_path = os.path.join(DEST_LST_DIR, f"{split_name}.lst")
@@ -180,6 +181,20 @@ def main():
         print(f"   📝 Saved Meta to: {meta_output_path}")
         print(f"   📝 Saved LST to:  {lst_output_path}")
 
+    print("\n🚀 STEP: Auto-Merging Dev Metadata into Train Metadata...")
+    train_meta_path = os.path.join(DEST_META_DIR, "metadata.train.txt")
+    dev_meta_path = os.path.join(DEST_META_DIR, "metadata.dev.txt")
+
+    if os.path.exists(train_meta_path) and os.path.exists(dev_meta_path):
+        with open(train_meta_path, 'a', encoding='utf-8') as f_train:
+            with open(dev_meta_path, 'r', encoding='utf-8') as f_dev:
+                f_train.write("\n" + f_dev.read())
+        print(f"✅ Successfully appended DEV labels into: metadata.train.txt")
+    else:
+        print("⚠️ Skipped auto-merge (No train or dev metadata found).")
+        
+    print("\n🎉 ALL DONE!")
+    
     print("\n🎉 ALL SPLITS COMPLETED SUCCESSFULLY!")
     print(f"📂 Audio combined in: {DEST_AUDIO_DIR}")
     print(f"📂 Metadata generated in: {DEST_META_DIR}")
