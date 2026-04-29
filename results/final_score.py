@@ -1,16 +1,9 @@
 import os
+import argparse
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import roc_curve
-
-experiment_number = "E2"
-
-# 1. Paths
-raw_score_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results" + "\\" + experiment_number + r"_scores\eval_results_raw.txt"
-cleaned_score_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results" + "\\" + experiment_number + r"_scores\eval_scores.txt"
-truth_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\experiment" + "\\" + experiment_number + r"\metadata.eval.txt"
-final_report_file = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results" + "\\" + experiment_number + r"_report.txt"
 
 def calculate_eer(y_true, y_score):
     """Calculates the Equal Error Rate (EER)."""
@@ -18,111 +11,111 @@ def calculate_eer(y_true, y_score):
     eer = brentq(lambda x: 1. - x - interp1d(fpr, tpr)(x), 0., 1.)
     return eer * 100
 
-def clean_raw_scores():
-    if not os.path.exists(raw_score_file):
-        print(f"[!] Error: Could not find raw file at {raw_score_file}")
+def calculate_minDCF(y_true, y_score, p_target=0.01, c_miss=1, c_fa=1):
+    """Calculates the minimum Detection Cost Function (minDCF)."""
+    fpr, tpr, thresholds = roc_curve(y_true, y_score, pos_label=1)
+    fnr = 1 - tpr
+    dcf_scores = c_miss * fnr * p_target + c_fa * fpr * (1 - p_target)
+    return np.min(dcf_scores)
+
+def clean_raw_scores(raw_file, clean_file):
+    if not os.path.exists(raw_file):
+        print(f"[!] Error: Could not find raw file at {raw_file}")
         return False
-        
-    print("Cleaning raw scores...")
-    count = 0
-    lines = []
     
-    # Try reading as UTF-16 (PowerShell format) first
+    lines = []
     try:
-        with open(raw_score_file, 'r', encoding='utf-16') as infile:
+        with open(raw_file, 'r', encoding='utf-16') as infile:
             lines = infile.readlines()
     except UnicodeError:
-        # If it fails, fallback to standard UTF-8 (CMD/Python format)
-        with open(raw_score_file, 'r', encoding='utf-8', errors='ignore') as infile:
+        with open(raw_file, 'r', encoding='utf-8', errors='ignore') as infile:
             lines = infile.readlines()
 
-    # Now write the clean scores
-    with open(cleaned_score_file, 'w', encoding='utf-8') as outfile:
+    count = 0
+    with open(clean_file, 'w', encoding='utf-8') as outfile:
         for line in lines:
             if "Output," in line:
                 parts = line.split(",")
                 if len(parts) >= 4:
-                    file_id = parts[1].strip()
-                    score_raw = parts[3].strip()
-                    
-                    # Strip any leftover hidden color codes
+                    file_id, score_raw = parts[1].strip(), parts[3].strip()
+                    # Clean ANSI codes or non-numeric characters from score
                     score_clean = ''.join(c for c in score_raw if c.isdigit() or c in '.-')
-                    
                     if file_id and score_clean:
                         outfile.write(f"{file_id} {score_clean}\n")
                         count += 1
-                        
-    print(f"Successfully cleaned {count} scores and saved to eval_scores.txt!\n")
     return count > 0
 
-print(f"--- Running Scoring for Experiment {experiment_number} ---")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--score-file", required=True)
+    parser.add_argument("--meta-file", required=True)
+    args = parser.parse_args()
 
-# Step A: Clean the messy raw scores
-if not clean_raw_scores():
-    exit()
+    # --- Path Logic ---
+    raw_path = os.path.abspath(args.score_file)
+    raw_filename = os.path.basename(raw_path)
+    timestamp = raw_filename.replace("eval_results_", "").replace("_raw.txt", "")
+    
+    # Logic to extract train/test names from path: .../results/TRAIN_NAME/TEST_NAME/file.txt
+    parts = raw_path.split(os.sep)
+    try:
+        test_name = parts[-2]
+        train_name = parts[-3]
+    except IndexError:
+        test_name, train_name = "unknown_test", "unknown_train"
 
-# Step B: Load Ground Truth (Bulletproof Version)
-print(f"Loading truth labels from: {truth_file}")
-truth_labels = {}
-if os.path.exists(truth_file):
-    # Added encoding='utf-8' and errors='ignore' just in case the metadata has weird characters too
-    with open(truth_file, 'r', encoding='utf-8', errors='ignore') as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                file_id = parts[1] # ID is in column 2
+    report_dir = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\report"
+    if not os.path.exists(report_dir): os.makedirs(report_dir)
+
+    cleaned_score_file_name = f"eval_scores_{timestamp}_clean.txt"
+    cleaned_score_file = os.path.join(os.path.dirname(raw_path), cleaned_score_file_name)
+    final_report_path = os.path.join(report_dir, f"{train_name}_{test_name}_report_{timestamp}.txt")
+
+    # --- Execution ---
+    if clean_raw_scores(raw_path, cleaned_score_file):
+        truth_labels = {}
+        with open(args.meta_file, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                p = line.strip().split()
+                if len(p) >= 2:
+                    # Ground truth: 1 for bonafide, 0 for spoof
+                    truth_labels[p[1]] = 1 if 'bonafide' in line.lower() else 0
+
+        y_true, y_score = [], []
+        with open(cleaned_score_file, 'r') as f:
+            for line in f:
+                p = line.strip().split()
+                if len(p) >= 2 and p[0] in truth_labels:
+                    y_true.append(truth_labels[p[0]])
+                    y_score.append(float(p[1]))
+
+        if y_true:
+            # --- NEW SAFETY CHECK ---
+            bonafide_count = sum(y_true)
+            spoof_count = len(y_true) - bonafide_count
+            
+            print(f"\n[i] Matches found -> Bonafide: {bonafide_count} | Spoof: {spoof_count}")
+            
+            if bonafide_count == 0 or spoof_count == 0:
+                print("[!] MATH ERROR PREVENTION: Cannot calculate EER or minDCF.")
+                print("    Reason: The dataset must contain at least one Bonafide AND one Spoof file.")
+                print("    Check your metadata or your dry-run mock IDs!\n")
+            else:
+                # --- NORMAL EXECUTION ---
+                eer = calculate_eer(y_true, y_score)
+                dcf = calculate_minDCF(y_true, y_score)
                 
-                # If the word 'bonafide' is ANYWHERE in this line, it's real (1). Else, spoof (0).
-                if 'bonafide' in line.lower():
-                    truth_labels[file_id] = 1
-                else:
-                    truth_labels[file_id] = 0
-
-# Step C: Load Cleaned Scores
-print(f"Loading model scores from: {cleaned_score_file}")
-y_true = []
-y_score = []
-
-if os.path.exists(cleaned_score_file):
-    with open(cleaned_score_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                file_id = parts[0]
-                try:
-                    score = float(parts[1])
-                    if file_id in truth_labels:
-                        y_true.append(truth_labels[file_id])
-                        y_score.append(score)
-                except ValueError:
-                    continue
-
-# Step D: Calculate EER
-if len(y_score) == 0:
-    print("\n[!] Error: No matching IDs found! Check if file IDs in scores match the ground truth.")
-else:
-    # DEBUG: Let's prove we found the files!
-    bonafide_count = sum(y_true)
-    spoof_count = len(y_true) - bonafide_count
-    print(f"\n[Success] Matches found -> Bonafide (Reals): {bonafide_count} | Spoofs (Fakes): {spoof_count}")
-    
-    if bonafide_count == 0 or spoof_count == 0:
-        print("[!] Math Error Prevention: Cannot calculate EER because we are missing either Real or Fake files.")
-        exit()
-
-    eer_val = calculate_eer(y_true, y_score)
-    result_text = (
-        f"=======================================\n"
-        f"       EXPERIMENT {experiment_number} RESULTS\n"
-        f"=======================================\n"
-        f"Total Files Evaluated : {len(y_score)}\n"
-        f"Equal Error Rate (EER): {eer_val:.2f}%\n"
-        f"=======================================\n"
-    )
-    
-    print("\n" + result_text)
-    
-    os.makedirs(os.path.dirname(final_report_file), exist_ok=True)
-    with open(final_report_file, 'w') as f:
-        f.write(result_text)
-    print(f"Report securely saved to: {final_report_file}")
+                res = (f"=======================================\n"
+                    f" EVALUATION REPORT\n"
+                    f"=======================================\n"
+                    f"Score File : {cleaned_score_file_name}\n"
+                    f"Train Mode : {train_name}\n"
+                    f"Test Set   : {test_name}\n"
+                    f"EER        : {eer:.4f}%\n"
+                    f"minDCF     : {dcf:.4f}\n"
+                    f"=======================================\n")
+                print(res)
+                with open(final_report_path, 'w') as f: f.write(res)
+                print(f"[+] Report securely saved to: {final_report_path}")
+        else:
+            print("[!] Error: No matching file IDs found in metadata.")
