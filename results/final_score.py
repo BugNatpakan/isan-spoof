@@ -69,7 +69,8 @@ def evaluate_experiment(score_file, meta_file, exp_name):
     curr_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # 1. Setup paths
-    temp_clean_file = score_file.replace("_raw.txt", "_clean_tmp.txt")
+    temp_clean_file = score_file.replace("_raw.txt", "_clean.txt")
+    dt = os.path.basename(score_file).replace("results_", "").replace("_raw.txt", "")
     
     # 2. Clean the UTF-16 raw file first
     if not clean_raw_scores(score_file, temp_clean_file):
@@ -102,8 +103,8 @@ def evaluate_experiment(score_file, meta_file, exp_name):
     min_dcf = calculate_minDCF(y_true, y_score)
     
     # Define the strict threshold
-    # threshold = get_strict_threshold(y_true, y_score, target_far=0.01)
-    threshold = 0
+    threshold = get_strict_threshold(y_true, y_score, target_far=0.01)
+    # threshold = 0
     # threshold = eer_threshold
 
     # 6. Calculate Correct Guesses AND New Errors based on STRICT threshold
@@ -143,7 +144,7 @@ def evaluate_experiment(score_file, meta_file, exp_name):
 
     # 8. Save the Report to a Text File
     output_dir = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\report"
-    report_file_path = os.path.join(output_dir, f"{exp_name}_report.txt")
+    report_file_path = os.path.join(output_dir, f"{exp_name}_report_{dt}.txt")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
