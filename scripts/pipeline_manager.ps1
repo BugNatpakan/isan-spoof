@@ -54,7 +54,7 @@ function Run-Train {
     }
 
     Set-Location -Path "$ScriptDir"
-    $TrainCommand = 'python -u main.py --epochs 10 --batch-size 8 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name'
+    $TrainCommand = 'python -u main.py --epochs 10 --batch-size 8 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name --run-name "' + $ExpName +'"'
     
     if ($DRY_RUN) {
         Write-Host "[DRY RUN] Would execute: $TrainCommand" -ForegroundColor Magenta

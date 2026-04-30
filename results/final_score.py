@@ -5,6 +5,8 @@ from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import roc_curve
 
+YOUR_RUN_ID = "b9714fbbbd1d4831aad74848860d74ef" # Change this to your actual Run ID from MLflow! 
+
 def calculate_eer(y_true, y_score):
     """Calculates the Equal Error Rate (EER)."""
     fpr, tpr, thresholds = roc_curve(y_true, y_score, pos_label=1)
@@ -132,6 +134,32 @@ if __name__ == "__main__":
                 print(f"\n{res}")
                 with open(final_report_path, 'w') as f: f.write(res)
                 print(f"[+] Report securely saved to: {final_report_path}\n")
+
+                # ==========================================
+                # 🟢 MLFLOW AUTO-LOGGING
+                # ==========================================
+                import mlflow
+
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                mlruns_path = os.path.join(current_dir, "mlruns")
+                mlflow.set_tracking_uri(f"file:///{mlruns_path.replace(chr(92), '/')}")
+
+                # ⚠️ Note: If you train E3 later, remember to change this Run ID!
+                
+                
+                # Rounding and Scaling to make it look great in the UI!
+    
+                EXP_NUM = test_name
+
+                try:
+                    with mlflow.start_run(run_id=YOUR_RUN_ID):
+                        mlflow.log_metric(f"{EXP_NUM}_EER", eer)
+                        # We name it _x100 so you remember why the number is bigger!
+                        mlflow.log_metric(f"{EXP_NUM}_MIN_DCF", dcf)
+                        print(f"✅ Successfully logged EER of {eer}% and scaled MIN_DCF of {dcf} to run {YOUR_RUN_ID}\n")
+                except Exception as e:
+                    print(f"[!] Warning: Could not log to MLflow. Error: {e}\n")
+
         else:
             # --- NEW DIAGNOSTIC ERROR PRINT ---
             print("\n[!] CRITICAL ERROR: No matching file IDs found between your Score file and Metadata file.")

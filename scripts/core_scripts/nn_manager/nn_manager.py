@@ -10,6 +10,7 @@ from __future__ import print_function
 import time
 import datetime
 import numpy as np
+import mlflow
 
 import torch
 import torch.nn as nn
@@ -356,7 +357,8 @@ def f_train_wrapper(args, pt_model, loss_wrapper, device, \
         
     # loop over multiple epochs
     for epoch_idx in range(start_epoch, epoch_num):
-
+        
+        
         # training one epoch
         pt_model.train()
         # set validation flag if necessary
@@ -415,6 +417,22 @@ def f_train_wrapper(args, pt_model, loss_wrapper, device, \
             epoch_idx, time_trn, loss_trn, time_val, loss_val, 
             flag_new_best, optimizer_wrapper.get_lr_info())
 
+
+        # ==========================================
+        # 🟢 MLFLOW: Log Metrics Here!
+        # Now that the epoch is over, we actually have the scores!
+        # ==========================================
+        # If your loss_trn/loss_val is a list of multiple losses, we grab the first one [0]
+        t_loss = loss_trn[0] if isinstance(loss_trn, list) else loss_trn
+        v_loss = loss_val[0] if isinstance(loss_val, list) else loss_val
+        
+        mlflow.log_metric("train_loss", t_loss, step=epoch_idx)
+        
+        if val_dataset_wrapper is not None:
+            mlflow.log_metric("val_loss", v_loss, step=epoch_idx)
+        # ==========================================
+        
+        
         # save the best model
         if flag_new_best:
             tmp_best_name = nii_nn_tools.f_save_trained_name(args)

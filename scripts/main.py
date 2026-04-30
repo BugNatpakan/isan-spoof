@@ -21,6 +21,8 @@ sys.path.insert(0, os.path.abspath('..'))
 
 import torch
 import importlib
+import mlflow
+import argparse
 
 import core_scripts.other_tools.display as nii_warn
 import core_scripts.data_io.default_data_io as nii_dset
@@ -54,6 +56,16 @@ def main():
     """ main(): the default wrapper for training and inference process
     Please prepare config.py and model.py
     """
+    
+    run_name = "Training_Run" # Default name
+    if "--run-name" in sys.argv:
+        idx = sys.argv.index("--run-name")
+        run_name = sys.argv[idx + 1] # Grab the name you typed (e.g., "E1")
+        # Hide these from the main parser so it doesn't crash!
+        sys.argv.pop(idx) # Removes "--run-name"
+        sys.argv.pop(idx) # Removes "E1"
+
+  
     # arguments initialization
     args = nii_arg_parse.f_args_parsed()
 
@@ -71,39 +83,36 @@ def main():
 
     # prepare data io    
     if not args.inference:
-        params = {'batch_size':  args.batch_size,
-                  'shuffle':  args.shuffle,
-                  'num_workers': args.num_workers,
-                  'sampler': args.sampler}
         
-        # Load file list and create data loader
-        trn_lst = nii_list_tool.read_list_from_text(prj_conf.trn_list)
-        trn_set = nii_dset.NIIDataSetLoader(
-            prj_conf.trn_set_name, \
-            trn_lst,
-            prj_conf.input_dirs, \
-            prj_conf.input_exts, \
-            prj_conf.input_dims, \
-            prj_conf.input_reso, \
-            prj_conf.input_norm, \
-            prj_conf.output_dirs, \
-            prj_conf.output_exts, \
-            prj_conf.output_dims, \
-            prj_conf.output_reso, \
-            prj_conf.output_norm, \
-            './', 
-            params = params,
-            truncate_seq = prj_conf.truncate_seq, 
-            min_seq_len = prj_conf.minimum_len,
-            save_mean_std = True,
-            wav_samp_rate = prj_conf.wav_samp_rate, 
-            global_arg = args)
-
-        if prj_conf.val_list is not None:
-            val_lst = nii_list_tool.read_list_from_text(prj_conf.val_list)
-            val_set = nii_dset.NIIDataSetLoader(
-                prj_conf.val_set_name,
-                val_lst,
+        # ==========================================
+        # 🟢 MLFLOW 1: Set Experiment Name
+        # ==========================================
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        mlruns_path = os.path.join(current_dir, "mlruns")
+        mlflow.set_tracking_uri(f"file:///{mlruns_path.replace(chr(92), '/')}")
+        mlflow.set_experiment("Isan_Anti_Spoofing_Project")
+        
+        # ==========================================
+        # 🟢 MLFLOW 2: Start the Run Wrapper
+        # ==========================================      
+        with mlflow.start_run(run_name=run_name):
+            
+            # 🟢 MLFLOW 3: Log all your command line arguments as parameters
+            mlflow.log_param("batch_size", args.batch_size)
+            mlflow.log_param("epochs", args.epochs)
+            mlflow.log_param("seed", args.seed)
+            mlflow.log_param("model_config", args.module_config)
+        
+            params = {'batch_size':  args.batch_size,
+                      'shuffle':  args.shuffle,
+                      'num_workers': args.num_workers,
+                      'sampler': args.sampler}
+            
+            # Load file list and create data loader
+            trn_lst = nii_list_tool.read_list_from_text(prj_conf.trn_list)
+            trn_set = nii_dset.NIIDataSetLoader(
+                prj_conf.trn_set_name, \
+                trn_lst,
                 prj_conf.input_dirs, \
                 prj_conf.input_exts, \
                 prj_conf.input_dims, \
@@ -114,37 +123,66 @@ def main():
                 prj_conf.output_dims, \
                 prj_conf.output_reso, \
                 prj_conf.output_norm, \
-                './', \
+                './', 
                 params = params,
-                truncate_seq= prj_conf.truncate_seq, 
+                truncate_seq = prj_conf.truncate_seq, 
                 min_seq_len = prj_conf.minimum_len,
-                save_mean_std = False,
-                wav_samp_rate = prj_conf.wav_samp_rate,
+                save_mean_std = True,
+                wav_samp_rate = prj_conf.wav_samp_rate, 
                 global_arg = args)
-        else:
-            val_set = None
 
-        # initialize the model and loss function
-        model = prj_model.Model(trn_set.get_in_dim(), \
-                                trn_set.get_out_dim(), \
-                                args, prj_conf, trn_set.get_data_mean_std())
-        loss_wrapper = prj_model.Loss(args)
-        
-        # initialize the optimizer
-        optimizer_wrapper = nii_op_wrapper.OptimizerWrapper(model, args)
+            if prj_conf.val_list is not None:
+                val_lst = nii_list_tool.read_list_from_text(prj_conf.val_list)
+                val_set = nii_dset.NIIDataSetLoader(
+                    prj_conf.val_set_name,
+                    val_lst,
+                    prj_conf.input_dirs, \
+                    prj_conf.input_exts, \
+                    prj_conf.input_dims, \
+                    prj_conf.input_reso, \
+                    prj_conf.input_norm, \
+                    prj_conf.output_dirs, \
+                    prj_conf.output_exts, \
+                    prj_conf.output_dims, \
+                    prj_conf.output_reso, \
+                    prj_conf.output_norm, \
+                    './', \
+                    params = params,
+                    truncate_seq= prj_conf.truncate_seq, 
+                    min_seq_len = prj_conf.minimum_len,
+                    save_mean_std = False,
+                    wav_samp_rate = prj_conf.wav_samp_rate,
+                    global_arg = args)
+            else:
+                val_set = None
 
-        # if necessary, resume training
-        if args.trained_model == "":
-            checkpoint = None 
-        else:
-            checkpoint = torch.load(args.trained_model)
+            # initialize the model and loss function
+            model = prj_model.Model(trn_set.get_in_dim(), \
+                                    trn_set.get_out_dim(), \
+                                    args, prj_conf, trn_set.get_data_mean_std())
+            loss_wrapper = prj_model.Loss(args)
             
-        # start training
-        nii_nn_wrapper.f_train_wrapper(args, model, 
-                                       loss_wrapper, device,
-                                       optimizer_wrapper,
-                                       trn_set, val_set, checkpoint)
-        # done for traing
+            # initialize the optimizer
+            optimizer_wrapper = nii_op_wrapper.OptimizerWrapper(model, args)
+
+            # if necessary, resume training
+            if args.trained_model == "":
+                checkpoint = None 
+            else:
+                checkpoint = torch.load(args.trained_model)
+                
+            # start training
+            nii_nn_wrapper.f_train_wrapper(args, model, 
+                                        loss_wrapper, device,
+                                        optimizer_wrapper,
+                                        trn_set, val_set, checkpoint)
+            
+            # ==========================================
+            # 🟢 MLFLOW 4: Log final artifacts (like your config files)
+            # ==========================================
+            mlflow.log_artifact(prj_conf.trn_list)
+            
+            # done for traing
 
     else:
         
