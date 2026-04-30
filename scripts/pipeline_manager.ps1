@@ -43,9 +43,10 @@ function Run-Train {
         return "$ModelsDir\E4\trained_network.pt"
     }
 
-    Write-Host "`n[+] [TRAIN] Starting Training for: $ExpName" -ForegroundColor Yellow
+    Write-Host "`n[+] [TRAIN] Starting Training for: $ExpName at $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")" -ForegroundColor Yellow
     Write-Host "    -> Data Root : $($env:DATA_ROOT)" -ForegroundColor DarkGray
-    
+    Write-Host "    -> Train Proto : $($env:TRAIN_PROTO)" -ForegroundColor DarkGray
+    Write-Host "    -> List Name : $($env:LIST_NAME)" -ForegroundColor DarkGray
 
     # Ensure the model save directory exists before Python tries to use it!
     if (-not (Test-Path -Path $SaveModelDir)) {
@@ -96,7 +97,7 @@ function Run-Inference {
     if (!(Test-Path "$OutputDir")) { New-Item -ItemType Directory -Path "$OutputDir" -Force | Out-Null }
     $SaveResultLoc = "$OutputDir\results_${Timestamp}_raw.txt"
 
-    Write-Host "`n[+] [INFERENCE] Evaluating Model for: $ExpName" -ForegroundColor Yellow
+    Write-Host "`n[+] [INFERENCE] Evaluating Model for: $ExpName at $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")" -ForegroundColor Yellow
     Write-Host "    -> Test Root : $($env:DATA_ROOT)" -ForegroundColor DarkGray
     
     Set-Location -Path "$ScriptDir"
@@ -147,8 +148,8 @@ function Run-Inference {
             Write-Host "[!] DRY RUN ERROR: Could not find metadata at $MetaPath" -ForegroundColor Red
         }
     } else {
-        Invoke-Expression $InfCommand
         Write-Host $InfCommand
+        Invoke-Expression $InfCommand     
     }
     # ---------------- END DRY RUN ----------------
 
@@ -162,14 +163,14 @@ function Run-Scoring {
     Write-Host "`n[+] [SCORING] Calculating EER for $ExpName..." -ForegroundColor Yellow
     Write-Host "    -> Score File: $ScoreFile" -ForegroundColor Cyan
     
-    $ScoreCommand = 'python "' + $ScoringScript + '" --score-file "' + $ScoreFile + '" --meta-file "' + $MetaPath + '"'
+    $ScoreCommand = 'python "' + $ScoringScript + '" --score-file "' + $ScoreFile + '" --meta-file "' + $MetaPath + '"' + ' --exp-name "' + $ExpName + '"'
 
     $DRY_RUN = $false # Force actual scoring to run since it's fast and we want to see results
     if ($DRY_RUN) {
         Write-Host "[DRY RUN] Would execute: $ScoreCommand" -ForegroundColor Magenta
     } else {
-        Invoke-Expression $ScoreCommand
         Write-Host $ScoreCommand
+        Invoke-Expression $ScoreCommand
     }
 }
 
@@ -179,8 +180,15 @@ function Run-FullExperiment {
     Write-Host "   STARTING FULL EXPERIMENT: $ExpName" -ForegroundColor Green
     Write-Host "==========================================" -ForegroundColor Green
     
-    $modelPath = Run-Train -ExpName $ExpName
-    $scorePath = Run-Inference -ExpName $ExpName -ModelPath $modelPath
+    # 1. Run training, but DO NOT assign it to a variable!
+    # This allows the training logs to print normally to your screen.
+    Run-Train -ExpName $ExpName
+    
+    # 2. Run inference WITHOUT passing the model path. 
+    # Your script will automatically find the model using its internal logic!
+    $scorePath = Run-Inference -ExpName $ExpName
+    
+    # 3. Run scoring
     Run-Scoring -ScoreFile $scorePath -ExpName $ExpName
 
     Write-Host "`n[SUCCESS] EXPERIMENT $ExpName COMPLETED!" -ForegroundColor Green

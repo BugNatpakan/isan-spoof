@@ -1,34 +1,56 @@
 import os
 import argparse
 import numpy as np
+import datetime
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import roc_curve
 
-YOUR_RUN_ID = "b9714fbbbd1d4831aad74848860d74ef" # Change this to your actual Run ID from MLflow! 
+YOUR_RUN_ID = "b9714fbbbd1d4831aad74848860d74ef" 
 
 def calculate_eer(y_true, y_score):
-    """Calculates the Equal Error Rate (EER)."""
+    """Calculates the Equal Error Rate (EER) and the best threshold."""
     fpr, tpr, thresholds = roc_curve(y_true, y_score, pos_label=1)
-    eer = brentq(lambda x: 1. - x - interp1d(fpr, tpr)(x), 0., 1.)
-    return eer * 100
+    fnr = 1 - tpr
+    idx = np.nanargmin(np.absolute(fpr - fnr))
+    eer_threshold = thresholds[idx]
+    return fpr[idx] * 100, fpr[idx] * 100, fnr[idx] * 100, eer_threshold
 
 def calculate_minDCF(y_true, y_score, p_target=0.01, c_miss=1, c_fa=1):
-    """Calculates the minimum Detection Cost Function (minDCF)."""
     fpr, tpr, thresholds = roc_curve(y_true, y_score, pos_label=1)
     fnr = 1 - tpr
     dcf_scores = c_miss * fnr * p_target + c_fa * fpr * (1 - p_target)
     return np.min(dcf_scores)
 
-def clean_raw_scores(raw_file, clean_file):
-    if not os.path.exists(raw_file):
-        print(f"[!] Error: Could not find raw file at {raw_file}")
-        return False
+def get_strict_threshold(y_true, y_score, target_far=0.01):
+    """
+    Calculates a threshold that guarantees a low False Alarm Rate (FAR).
+    """
+    fpr, tpr, thresholds = roc_curve(y_true, y_score, pos_label=1)
     
+    # 1. Ignore the artificial 'inf' threshold added by scikit-learn
+    valid_mask = ~np.isinf(thresholds)
+    clean_thresholds = thresholds[valid_mask]
+    clean_fpr = fpr[valid_mask]
+    
+    # 2. Find all thresholds where FAR is less than or equal to the target
+    valid_indices = np.where(clean_fpr <= target_far)[0]
+    
+    if len(valid_indices) > 0:
+        # 3. Pick the LAST index (the most forgiving threshold that still stops hackers)
+        strict_threshold = clean_thresholds[valid_indices[-1]]
+    else:
+        # Fallback if the target is impossible for this dataset
+        strict_threshold = np.max(clean_thresholds)
+        
+    print(f"\n[+] Strict Threshold for FAR <= {target_far*100:.2f}%: {strict_threshold:.4f}\n")
+    return strict_threshold
+
+def clean_raw_scores(raw_file, clean_file):
+    """Handles UTF-16 raw files and extracts 'Output,' lines."""
+    if not os.path.exists(raw_file): return False
     count = 0
-    # Process line-by-line (Streaming) instead of readlines()
     with open(clean_file, 'w', encoding='utf-8') as outfile:
-        # We try UTF-8 with ignore directly, as it handles 99% of ANSI junk cleanly
         with open(raw_file, 'r', encoding='utf-16', errors='ignore') as infile:
             for line in infile:
                 if "Output," in line:
@@ -36,141 +58,114 @@ def clean_raw_scores(raw_file, clean_file):
                     if len(parts) >= 4:
                         file_id = parts[1].strip()
                         score_raw = parts[3].strip()
-                        
-                        # Clean ANSI codes or non-numeric characters from score
                         score_clean = ''.join(c for c in score_raw if c.isdigit() or c in '.-')
-                        
                         if file_id and score_clean:
                             outfile.write(f"{file_id} {score_clean}\n")
                             count += 1
-                            
     return count > 0
 
+def evaluate_experiment(score_file, meta_file, exp_name):
+    y_true, y_score = [], []
+    curr_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # 1. Setup paths
+    temp_clean_file = score_file.replace("_raw.txt", "_clean_tmp.txt")
+    
+    # 2. Clean the UTF-16 raw file first
+    if not clean_raw_scores(score_file, temp_clean_file):
+        print(f"[!] Error: Could not process raw file {score_file}")
+        return
+
+    # 3. Load Metadata
+    truth_labels = {}
+    with open(meta_file, 'r', encoding='utf-8', errors='ignore') as f:
+        for line in f:
+            p = line.strip().split()
+            if len(p) >= 2:
+                truth_labels[p[1]] = 1 if ('bonafide' in line.lower() or 'genuine' in line.lower()) else 0
+
+    # 4. Load Cleaned Scores
+    with open(temp_clean_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            p = line.strip().split()
+            if len(p) >= 2 and p[0] in truth_labels:
+                y_true.append(truth_labels[p[0]])
+                y_score.append(float(p[1]))
+    
+    y_true, y_score = np.array(y_true), np.array(y_score)
+    if len(y_true) == 0:
+        print("[!] No matching IDs found.")
+        return
+
+    # 5. Calculate Metrics
+    eer, eer_far, eer_frr, eer_threshold = calculate_eer(y_true, y_score)
+    min_dcf = calculate_minDCF(y_true, y_score)
+    
+    # Define the strict threshold
+    # threshold = get_strict_threshold(y_true, y_score, target_far=0.01)
+    threshold = 0
+    # threshold = eer_threshold
+
+    # 6. Calculate Correct Guesses AND New Errors based on STRICT threshold
+    bonafide_idx = (y_true == 1)
+    bonafide_total = np.sum(bonafide_idx)
+    bonafide_correct = np.sum(y_score[bonafide_idx] >= threshold)
+    false_rejections = bonafide_total - bonafide_correct # Real users blocked
+    
+    spoof_idx = (y_true == 0)
+    spoof_total = np.sum(spoof_idx)
+    spoof_correct = np.sum(y_score[spoof_idx] < threshold)
+    false_alarms = spoof_total - spoof_correct # Hackers let in
+
+    # Calculate actual FAR and FRR percentages at this new threshold
+    strict_far = (false_alarms / spoof_total) * 100 if spoof_total > 0 else 0
+    strict_frr = (false_rejections / bonafide_total) * 100 if bonafide_total > 0 else 0
+
+    # 7. Generate Report
+    res = (f"==============================================\n"
+           f"           EXPERIMENT METRICS REPORT          \n"
+           f"==============================================\n"
+           f" Date            : {curr_date}\n"
+           f" Experiment Name : {exp_name}\n"
+           f" EER Threshold   : {eer_threshold:.4f}\n"
+           f" Strict Threshold: {threshold:.4f}\n"
+           f"----------------------------------------------\n"
+           f" [BONAFIDE] Correct: {bonafide_correct}/{bonafide_total} ({bonafide_correct/bonafide_total*100:.2f}%)\n"
+           f" [SPOOF]    Correct: {spoof_correct}/{spoof_total} ({spoof_correct/spoof_total*100:.2f}%)\n"
+           f"----------------------------------------------\n"
+           f" * Equal Error Rate (EER)   : {eer:.4f}%\n"
+           f" * False Alarm (FAR)        : {strict_far:.4f}%\n"
+           f" * False Reject (FRR)       : {strict_frr:.4f}%\n"
+           f" * Minimum DCF (minDCF)     : {min_dcf:.6f}\n"
+           f"==============================================\n")
+    
+    print(res)
+
+    # 8. Save the Report to a Text File
+    output_dir = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\report"
+    report_file_path = os.path.join(output_dir, f"{exp_name}_report.txt")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    with open(report_file_path, 'w', encoding='utf-8') as f:
+        f.write(res)
+    
+    
+    print(f"[+] Saved metrics report to: {report_file_path}\n")
+
+    # Optional: Log to MLflow if needed
+    try:
+        import mlflow
+        with mlflow.start_run(run_id=YOUR_RUN_ID):
+            mlflow.log_metric(f"{exp_name}_Bona_Correct", bonafide_correct)
+            mlflow.log_metric(f"{exp_name}_Spoof_Correct", spoof_correct)
+            mlflow.log_metric(f"{exp_name}_EER", eer)
+    except: pass
+
 if __name__ == "__main__":
-    print("\n[i] Starting score evaluation...\n")
     parser = argparse.ArgumentParser()
     parser.add_argument("--score-file", required=True)
     parser.add_argument("--meta-file", required=True)
+    parser.add_argument("--exp-name", default="E1")
     args = parser.parse_args()
-
-    # --- Path Logic ---
-    raw_path = os.path.abspath(args.score_file)
-    raw_filename = os.path.basename(raw_path)
-    timestamp = raw_filename.replace("results_", "").replace("_raw.txt", "")
-    
-    # Logic to extract train/test names from path: .../results/TRAIN_NAME/TEST_NAME/file.txt
-    parts = raw_path.split(os.sep)
-    try:
-        test_name = parts[-2]
-        train_name = parts[-3]
-    except IndexError:
-        test_name, train_name = "unknown_test", "unknown_train"
-
-    report_dir = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\report"
-    if not os.path.exists(report_dir): os.makedirs(report_dir)
-
-    cleaned_score_file_name = f"eval_scores_{timestamp}_clean.txt"
-    cleaned_score_file = os.path.join(os.path.dirname(raw_path), cleaned_score_file_name)
-    final_report_path = os.path.join(report_dir, f"{train_name}_{test_name}_report_{timestamp}.txt")
-
-    # --- NEW ERROR PRINT: Check if Metadata exists ---
-    if not os.path.exists(args.meta_file):
-        print(f"[!] FATAL ERROR: Could not find metadata file at:")
-        print(f"    {args.meta_file}")
-        print("    Please check your paths and try again.\n")
-        exit(1)
-
-    # --- Execution ---
-    if clean_raw_scores(raw_path, cleaned_score_file):
-        truth_labels = {}
-        with open(args.meta_file, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
-                p = line.strip().split()
-                if len(p) >= 2:
-                    # Ground truth: 1 for bonafide/genuine, 0 for spoof/fake
-                    # (Added 'genuine' here too just to be bulletproof for your datasets)
-                    truth_labels[p[1]] = 1 if ('bonafide' in line.lower() or 'genuine' in line.lower()) else 0
-
-        y_true, y_score = [], []
-        
-        # Keep track of score IDs for debugging
-        score_file_ids = [] 
-        
-        with open(cleaned_score_file, 'r') as f:
-            for line in f:
-                p = line.strip().split()
-                if len(p) >= 2:
-                    score_id = p[0]
-                    score_file_ids.append(score_id)
-                    if score_id in truth_labels:
-                        y_true.append(truth_labels[score_id])
-                        y_score.append(float(p[1]))
-
-        if y_true:
-            # --- SAFETY CHECK ---
-            bonafide_count = sum(y_true)
-            spoof_count = len(y_true) - bonafide_count
-            
-            print(f"[i] Matches found -> Bonafide: {bonafide_count} | Spoof: {spoof_count}")
-            
-            if bonafide_count == 0 or spoof_count == 0:
-                print("\n[!] MATH ERROR PREVENTION: Cannot calculate EER or minDCF.")
-                print("    Reason: The dataset must contain at least one Bonafide AND one Spoof file.")
-                print("    Check your metadata or your dry-run mock IDs!\n")
-            else:
-                # --- NORMAL EXECUTION ---
-                eer = calculate_eer(y_true, y_score)
-                dcf = calculate_minDCF(y_true, y_score)
-                
-                res = (f"=======================================\n"
-                       f" EVALUATION REPORT\n"
-                       f"=======================================\n"
-                       f"Score File : {cleaned_score_file_name}\n"
-                       f"Train Mode : {train_name}\n"
-                       f"Test Set   : {test_name}\n"
-                       f"EER        : {eer:.4f}%\n"
-                       f"minDCF     : {dcf:.4f}\n"
-                       f"=======================================\n")
-                print(f"\n{res}")
-                with open(final_report_path, 'w') as f: f.write(res)
-                print(f"[+] Report securely saved to: {final_report_path}\n")
-
-                # ==========================================
-                # 🟢 MLFLOW AUTO-LOGGING
-                # ==========================================
-                import mlflow
-
-                current_dir = os.path.dirname(os.path.abspath(__file__))
-                mlruns_path = os.path.join(current_dir, "mlruns")
-                mlflow.set_tracking_uri(f"file:///{mlruns_path.replace(chr(92), '/')}")
-
-                # ⚠️ Note: If you train E3 later, remember to change this Run ID!
-                
-                
-                # Rounding and Scaling to make it look great in the UI!
-    
-                EXP_NUM = test_name
-
-                try:
-                    with mlflow.start_run(run_id=YOUR_RUN_ID):
-                        mlflow.log_metric(f"{EXP_NUM}_EER", eer)
-                        # We name it _x100 so you remember why the number is bigger!
-                        mlflow.log_metric(f"{EXP_NUM}_MIN_DCF", dcf)
-                        print(f"✅ Successfully logged EER of {eer}% and scaled MIN_DCF of {dcf} to run {YOUR_RUN_ID}\n")
-                except Exception as e:
-                    print(f"[!] Warning: Could not log to MLflow. Error: {e}\n")
-
-        else:
-            # --- NEW DIAGNOSTIC ERROR PRINT ---
-            print("\n[!] CRITICAL ERROR: No matching file IDs found between your Score file and Metadata file.")
-            print("    This usually means the text formatting or column layout is different.")
-            
-            meta_samples = list(truth_labels.keys())[:5]
-            score_samples = score_file_ids[:5]
-            
-            print(f"\n    -> Total IDs in Metadata : {len(truth_labels)}")
-            print(f"    -> Total IDs in Scores   : {len(score_file_ids)}")
-            print("\n    [DIAGNOSTIC COMPARISON]")
-            print(f"    Metadata File IDs look like this : {meta_samples}")
-            print(f"    Score File IDs look like this    : {score_samples}")
-            print("\n    Hint: Do they have different file extensions (like .flac) attached? Are they missing a prefix?\n")
+    evaluate_experiment(args.score_file, args.meta_file, args.exp_name)

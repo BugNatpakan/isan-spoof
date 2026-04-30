@@ -15,6 +15,7 @@ import mlflow
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tqdm import tqdm
 
 import core_scripts.data_io.conf as nii_dconf
 import core_scripts.other_tools.display as nii_display
@@ -177,12 +178,12 @@ def f_run_one_epoch(args,
                              (end_time-start_time) / batchsize, \
                              data_seq_info, idx_orig.numpy()[idx], \
                              epoch_idx)
-            # print infor for one sentence
-            if args.verbose == 1:
-                monitor.print_error_for_batch(data_idx*batchsize + idx,\
-                                              idx_orig.numpy()[idx], \
-                                              epoch_idx)
-            # 
+            # # print infor for one sentence
+            # if args.verbose == 1:
+            #     monitor.print_error_for_batch(data_idx*batchsize + idx,\
+            #                                   idx_orig.numpy()[idx], \
+            #                                   epoch_idx)
+            # # 
         # start the timer for a new batch
         start_time = time.time()
             
@@ -351,12 +352,16 @@ def f_train_wrapper(args, pt_model, loss_wrapper, device, \
     epoch_num = monitor_trn.get_max_epoch()
 
     # print
-    _ = nii_op_display_tk.print_log_head()
+    # _ = nii_op_display_tk.print_log_head()
     nii_display.f_print_message(train_log, flush=True, end='')
         
         
     # loop over multiple epochs
+    
     for epoch_idx in range(start_epoch, epoch_num):
+        
+        pbar = tqdm(train_data_loader, desc=f"Epoch {epoch_idx+1}/{epoch_num}", leave=True)
+
         
         
         # training one epoch
@@ -371,7 +376,7 @@ def f_train_wrapper(args, pt_model, loss_wrapper, device, \
             pt_model.flag_validation = False
 
         f_run_one_epoch(args, pt_model, loss_wrapper, device, \
-                        monitor_trn, train_data_loader, \
+                        monitor_trn, pbar, \
                         epoch_idx, optimizer, normtarget_f)
         time_trn = monitor_trn.get_time(epoch_idx)
         loss_trn = monitor_trn.get_loss(epoch_idx)
@@ -392,9 +397,10 @@ def f_train_wrapper(args, pt_model, loss_wrapper, device, \
                 pt_model.flag_validation = True
 
             with torch.no_grad():
+                val_pbar = tqdm(val_data_loader, desc=f"Validating {epoch_idx+1}/{epoch_num}", leave=False)
                 f_run_one_epoch(args, pt_model, loss_wrapper, \
                                 device, \
-                                monitor_val, val_data_loader, \
+                                monitor_val, val_pbar, \
                                 epoch_idx, None, normtarget_f)
             time_val = monitor_val.get_time(epoch_idx)
             loss_val = monitor_val.get_loss(epoch_idx)
