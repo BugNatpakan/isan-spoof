@@ -20,3 +20,5 @@ scripts/*.dic
 
 mlruns/
 scripts/*.db
+
+*.zip
