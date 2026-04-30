@@ -15,13 +15,13 @@ TARGET_SPOOF_COUNT = 1000
 # 2. Source Folders (Where your current FLAC files are)
 SOURCE_FLAC_DIRS = [
     r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\flac",
-    r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\flac",
+    r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\wav_all",
 ]
 
 # 3. Original Metadata Files (To know which file is spoof/bonafide)
 ORIGINAL_METADATA_FILES = [
     r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\typhoon_metadata.txt",
-    r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\isan_tts_metadata.txt"
+    r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\metadata.all.txt"
 ]
 
 # 4. Target Destinations (Where the new files will go)

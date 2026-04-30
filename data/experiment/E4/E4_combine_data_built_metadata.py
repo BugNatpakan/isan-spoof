@@ -43,11 +43,11 @@ SPLIT_CONFIG = {
         {
             "name": "isan", # Example of a second dataset mixed into train
             "audio_dirs": [
-                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\flac", 
+                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\wav_all",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\flac"
             ],
             "meta_files": [
-                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\isan_tts_metadata.txt",
+                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\metadata.all.txt",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\typhoon_metadata.txt"
             ],
             "target_bonafide": 3000, # Extracts exactly 3000 bonafide from another_dataset
@@ -82,11 +82,11 @@ SPLIT_CONFIG = {
         {
             "name": "isan", # Example of a second dataset mixed into train
             "audio_dirs": [
-                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\flac", 
+                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\wav_all",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\flac"
             ],
             "meta_files": [
-                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\isan_tts_metadata.txt",
+                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\metadata.all.txt",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\typhoon_metadata.txt"
             ],
             "target_bonafide": 750, # Extracts exactly 3000 bonafide from another_dataset
@@ -97,9 +97,9 @@ SPLIT_CONFIG = {
     "eval": [
         {
             "name": "isan",
-            "audio_dirs": [r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\flac",
+            "audio_dirs": [r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\wav_all",
                            r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\flac"],
-            "meta_files": [r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\isan_tts_metadata.txt",
+            "meta_files": [r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\metadata.all.txt",
                            r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\typhoon_metadata.txt"],
             "target_bonafide": 1000,
             "target_spoof": 1000
