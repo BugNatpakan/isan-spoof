@@ -7,28 +7,22 @@ from tqdm import tqdm
 # ⚙️ CONFIGURATION - DATASETS & RATIOS
 # ==========================================
 
-# Where all the copied audio files and text files will be saved separately
 root_output_dir = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\experiment\E4"
 DEST_AUDIO_DIR = os.path.join(root_output_dir, "wav_all")
 DEST_META_DIR  = root_output_dir
 DEST_LST_DIR   = os.path.join(root_output_dir, "scp")
 
-# Configure multiple datasets per split, with specific ratios for EACH dataset.
 SPLIT_CONFIG = {
     "train": [
         {
-            "name": "ASVspoof2019LA", # Example of a dataset mixed into train
-            "audio_dirs": [
-                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ASVspoof_2019_LA\combine\wav_all"
-            ],
-            "meta_files": [
-                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ASVspoof_2019_LA\combine\metadata.all.txt"
-            ],
-            "target_bonafide": 1000, # Extracts exactly 1000 bonafide from ASVspoof2019LA
-            "target_spoof": 1000     # Extracts exactly 1000 spoof from ASVspoof2019LA
+            "name": "ASVspoof2019LA", 
+            "audio_dirs": [r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ASVspoof_2019_LA\combine\wav_all"],
+            "meta_files": [r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ASVspoof_2019_LA\combine\metadata.all.txt"],
+            "target_bonafide": 1000, 
+            "target_spoof": 1000    
         },
         {
-            "name": "ai_for_thai", # Example of a second dataset mixed into train
+            "name": "ai_for_thai", 
             "audio_dirs": [
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ai_for_thai\fake\combine\wav_all", 
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ai_for_thai\genuine\combine\wav_all"
@@ -37,11 +31,11 @@ SPLIT_CONFIG = {
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ai_for_thai\fake\combine\metadata.all.txt",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ai_for_thai\genuine\combine\metadata.all.txt"
             ],
-            "target_bonafide": 1000, # Extracts exactly 1000 bonafide from another_dataset
-            "target_spoof": 1000     # Extracts exactly 1000 spoof from another_dataset
+            "target_bonafide": 1000, 
+            "target_spoof": 1000    
         },
         {
-            "name": "isan", # Example of a second dataset mixed into train
+            "name": "isan", 
             "audio_dirs": [
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\wav_all",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\flac"
@@ -50,24 +44,20 @@ SPLIT_CONFIG = {
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\metadata.all.txt",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\typhoon_metadata.txt"
             ],
-            "target_bonafide": 3000, # Extracts exactly 3000 bonafide from another_dataset
-            "target_spoof": 3000     # Extracts exactly 3000 spoof from another_dataset
+            "target_bonafide": 3000, 
+            "target_spoof": 3000    
         }
     ],
     "dev": [
         {
-            "name": "ASVspoof2019LA", # Example of a dataset mixed into train
-            "audio_dirs": [
-                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ASVspoof_2019_LA\combine\wav_all"
-            ],
-            "meta_files": [
-                r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ASVspoof_2019_LA\combine\metadata.all.txt"
-            ],
-            "target_bonafide": 250, # Extracts exactly 1000 bonafide from ASVspoof2019LA
-            "target_spoof": 250     # Extracts exactly 1000 spoof from ASVspoof2019LA
+            "name": "ASVspoof2019LA", 
+            "audio_dirs": [r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ASVspoof_2019_LA\combine\wav_all"],
+            "meta_files": [r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ASVspoof_2019_LA\combine\metadata.all.txt"],
+            "target_bonafide": 250, 
+            "target_spoof": 250    
         },
         {
-            "name": "ai_for_thai", # Example of a second dataset mixed into train
+            "name": "ai_for_thai", 
             "audio_dirs": [
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ai_for_thai\fake\combine\wav_all", 
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ai_for_thai\genuine\combine\wav_all"
@@ -76,11 +66,11 @@ SPLIT_CONFIG = {
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ai_for_thai\fake\combine\metadata.all.txt",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\ai_for_thai\genuine\combine\metadata.all.txt"
             ],
-            "target_bonafide": 250, # Extracts exactly 1000 bonafide from another_dataset
-            "target_spoof": 250     # Extracts exactly 1000 spoof from another_dataset
+            "target_bonafide": 250, 
+            "target_spoof": 250    
         },
         {
-            "name": "isan", # Example of a second dataset mixed into train
+            "name": "isan", 
             "audio_dirs": [
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\wav_all",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\flac"
@@ -89,8 +79,8 @@ SPLIT_CONFIG = {
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\combine\metadata.all.txt",
                 r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\typhoon_isan\typhoon_metadata.txt"
             ],
-            "target_bonafide": 750, # Extracts exactly 3000 bonafide from another_dataset
-            "target_spoof": 750     # Extracts exactly 3000 spoof from another_dataset
+            "target_bonafide": 750, 
+            "target_spoof": 750    
         }
         
     ],
@@ -106,6 +96,29 @@ SPLIT_CONFIG = {
         },
     ]
 }
+
+# ==========================================
+# 🧠 HELPER: SPEAKER IDENTIFICATION
+# ==========================================
+def get_speaker_id(file_id, parts):
+    """Dynamically identifies the speaker from the filename or ASVspoof line."""
+    # 1. ASVspoof format: SPEAKER_ID is parts[0], FILE_ID is parts[1]
+    if len(parts) >= 2 and parts[1] == file_id:
+        return parts[0]
+    
+    # 2. scb10x format: scb10x_is_m_008_fin_0159_m_017 -> speaker is m_008
+    if "scb10x" in file_id:
+        tokens = file_id.split('_')
+        if len(tokens) >= 4:
+            return f"scb10x_{tokens[3]}"
+            
+    # 3. Fallback: if parts[0] is not the file_id or a label, assume it's speaker
+    if parts[0] not in [file_id, "bonafide", "spoof", "-", "genuine", "fake"]:
+        return parts[0]
+        
+    # 4. If no clear speaker ID exists, treat the file as its own unique speaker
+    return file_id 
+
 # ==========================================
 
 def main():
@@ -113,22 +126,34 @@ def main():
     os.makedirs(DEST_META_DIR, exist_ok=True)
     os.makedirs(DEST_LST_DIR, exist_ok=True)
 
-    # Global memory to prevent any data leakage across splits
+    # Delete the merged train metadata if it exists so we don't append to an old run
+    merged_train_meta_path = os.path.join(DEST_META_DIR, "metadata.train.txt")
+    if os.path.exists(merged_train_meta_path):
+        os.remove(merged_train_meta_path)
+
+    # 🟢 NEW: Global memory to track which SPEAKERS have been used
+    global_used_speakers = set()
     used_files = set() 
 
     # Process each split (train, dev, eval)
-    for split_name, datasets in SPLIT_CONFIG.items():
+    # 🟢 SMART SPLIT: Process Eval first, then Dev, then Train
+    for split_name in ["eval", "dev", "train"]:
+        if split_name not in SPLIT_CONFIG: 
+            continue
+        datasets = SPLIT_CONFIG[split_name]
+        
         print(f"\n" + "="*50)
         print(f"🚀 PROCESSING SPLIT: [{split_name.upper()}]")
         print(f"="*50)
         
         split_final_selection = []
+        current_split_speakers = set() # Tracks speakers used in THIS specific split
         
         # Process each individual dataset within the split
         for dataset in datasets:
             print(f"\n📁 Dataset: {dataset['name']}")
             
-            # 1. MAP AUDIO FILES FOR THIS SPECIFIC DATASET
+            # 1. MAP AUDIO FILES
             available_files = {} 
             for source_dir in dataset["audio_dirs"]:
                 if not os.path.exists(source_dir):
@@ -139,13 +164,12 @@ def main():
                         file_id = filename.replace('.flac', '').replace('.wav', '')
                         available_files[file_id] = os.path.join(source_dir, filename)
             
-            # 2. READ METADATA & CATEGORIZE
-            ds_bonafide_pool = []
-            ds_spoof_pool = []
+            # 2. READ METADATA & CATEGORIZE BY SPEAKER
+            bonafide_by_speaker = {}
+            spoof_by_speaker = {}
             
             for meta_path in dataset["meta_files"]:
                 if not os.path.exists(meta_path):
-                    print(f"   ⚠️ Meta not found: {meta_path}")
                     continue
                     
                 with open(meta_path, 'r', encoding='utf-8') as f:
@@ -167,9 +191,8 @@ def main():
                         if not file_id:
                             continue
                             
-                        # 🛑 LEAKAGE CHECK
-                        if file_id in used_files:
-                            continue 
+                        # Extract Speaker ID
+                        speaker_id = get_speaker_id(file_id, parts)
 
                         # Find the label
                         line_lower = line.lower()
@@ -182,31 +205,57 @@ def main():
 
                         file_data = {
                             "file_id": file_id,
+                            "speaker_id": speaker_id,
                             "path": available_files[file_id],
                             "meta_line": line.strip('\n') + "\n"
                         }
                         
                         if label == "bonafide":
-                            ds_bonafide_pool.append(file_data)
+                            if speaker_id not in bonafide_by_speaker: bonafide_by_speaker[speaker_id] = []
+                            bonafide_by_speaker[speaker_id].append(file_data)
                         elif label == "spoof":
-                            ds_spoof_pool.append(file_data)
+                            if speaker_id not in spoof_by_speaker: spoof_by_speaker[speaker_id] = []
+                            spoof_by_speaker[speaker_id].append(file_data)
 
-            # 3. APPLY THIS DATASET'S RATIO LIMITS
-            random.shuffle(ds_bonafide_pool)
-            random.shuffle(ds_spoof_pool)
+            # 3. EXTRACT ENTIRE SPEAKERS TO REACH TARGET RATIOS
+            def extract_files_by_speaker(speaker_dict, target_count):
+                selected = []
+                speakers = list(speaker_dict.keys())
+                random.shuffle(speakers)
+                
+                for spk in speakers:
+                    if len(selected) >= target_count:
+                        break
+                        
+                    # 🛑 PREVENT LEAKAGE: 
+                    # If this speaker was used in a PREVIOUS split (e.g. Train), skip them completely!
+                    if spk in global_used_speakers and spk not in current_split_speakers:
+                        continue
+                        
+                    files_to_add = speaker_dict[spk]
+                    selected.extend(files_to_add)
+                    
+                    # Lock this speaker globally so future splits (Dev/Eval) can't use them
+                    global_used_speakers.add(spk)
+                    current_split_speakers.add(spk)
+                    
+                # Trim to the exact requested target size
+                return selected[:target_count]
+
+            selected_bonafide = extract_files_by_speaker(bonafide_by_speaker, dataset["target_bonafide"])
+            selected_spoof = extract_files_by_speaker(spoof_by_speaker, dataset["target_spoof"])
             
-            # Extract exactly the requested amount for THIS dataset
-            selected_bonafide = ds_bonafide_pool[:dataset["target_bonafide"]]
-            selected_spoof = ds_spoof_pool[:dataset["target_spoof"]]
+            # Print status
+            total_b = sum(len(v) for v in bonafide_by_speaker.values())
+            total_s = sum(len(v) for v in spoof_by_speaker.values())
+            print(f"   ✅ Available:      {total_b} Bonafide | {total_s} Spoof")
+            print(f"   🎯 Ratio Achieved: {len(selected_bonafide)} Bonafide | {len(selected_spoof)} Spoof.")
             
-            print(f"   ✅ Available Unused: {len(ds_bonafide_pool)} Bonafide | {len(ds_spoof_pool)} Spoof")
-            print(f"   🎯 Locked Ratio:     {len(selected_bonafide)} Bonafide | {len(selected_spoof)} Spoof extracted.")
-            
-            # Add this dataset's selected files into the master split pool
+            # Add to the master pool for this split
             split_final_selection.extend(selected_bonafide + selected_spoof)
             
         # -------------------------------------------------------------
-        # All datasets for this split are loaded. Now we mix and copy!
+        # Mix and copy files
         # -------------------------------------------------------------
         print(f"\n🔄 Mixing all {len(split_final_selection)} files for {split_name.upper()}...")
         random.shuffle(split_final_selection)
@@ -219,22 +268,23 @@ def main():
             ext = os.path.splitext(src_path)[1] 
             dest_path = os.path.join(DEST_AUDIO_DIR, item["file_id"] + ext)
             
-            # Copy audio
             if not os.path.exists(dest_path):
                 shutil.copy2(src_path, dest_path)
                 
-            # Add to text lists
             final_meta_lines.append(item["meta_line"])
             final_lst_lines.append(item["file_id"] + "\n")
-            
-            # Mark this file as USED globally
-            used_files.add(item["file_id"])
 
-        # SAVE SEPARATED TEXT FILES
-        meta_output_path = os.path.join(DEST_META_DIR, f"metadata.{split_name}.txt")
+        # MERGE TRAIN & DEV METADATA
         lst_output_path = os.path.join(DEST_LST_DIR, f"{split_name}.lst")
         
-        with open(meta_output_path, 'w', encoding='utf-8') as f:
+        if split_name in ["train", "dev"]:
+            meta_output_path = os.path.join(DEST_META_DIR, "metadata.train.txt")
+            write_mode = 'a' 
+        else:
+            meta_output_path = os.path.join(DEST_META_DIR, f"metadata.{split_name}.txt")
+            write_mode = 'w'
+
+        with open(meta_output_path, write_mode, encoding='utf-8') as f:
             f.writelines(final_meta_lines)
             
         with open(lst_output_path, 'w', encoding='utf-8') as f:
@@ -244,9 +294,6 @@ def main():
         print(f"   📝 Saved LST to:  {lst_output_path}")
 
     print("\n🎉 ALL SPLITS COMPLETED SUCCESSFULLY!")
-    print(f"📂 Audio combined in: {DEST_AUDIO_DIR}")
-    print(f"📂 Metadata generated in: {DEST_META_DIR}")
-    print(f"📂 LST files generated in: {DEST_LST_DIR}")
 
 if __name__ == "__main__":
     main()
