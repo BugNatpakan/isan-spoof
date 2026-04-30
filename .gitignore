@@ -17,3 +17,6 @@ __pycache__/
 tempCodeRunnerFile.*
 *.tar.gz
 scripts/*.dic
+
+mlruns/
+scripts/*.db
