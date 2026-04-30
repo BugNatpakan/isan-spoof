@@ -17,6 +17,7 @@ SOURCE_WAV_DIRS = [
     r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\pure-rvc",
     r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\pure-tts",
     r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\tts-rvc",
+    r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\ex-1000"
 ]
 
 # 3. Target Destinations (Where the new FLAC files will go)
