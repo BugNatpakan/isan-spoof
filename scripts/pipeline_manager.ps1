@@ -171,12 +171,16 @@ function Run-Scoring {
     }
 }
 
+# =========================================================
+# E5 SPECIFIC FUNCTIONS (FEATURE ABLATION)
+# =========================================================
+
 function Run-E5-Train {
     param ([string]$feat)
     Write-Host "`n[+] [TRAIN] Starting E5 $($feat.ToUpper())..." -ForegroundColor Yellow
     
     $ExpName = "E5_$feat"
-    $TargetDir = "$ExpDir\E4"
+    $TargetDir = "$ExpDir\E4" # Reusing E4 Data
     $env:DATA_ROOT = $TargetDir
     $env:TRAIN_PROTO = "\" + $TrainProtoName
     $env:LIST_NAME = $TrainListName
@@ -189,21 +193,15 @@ function Run-E5-Train {
     # Base training command
     $TrainCommand = 'python -u main.py --epochs 10 --num-workers 4 --batch-size 4 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name --run-name "' + $ExpName + '" --feature_type ' + $feat
     
-    # --- DYNAMIC RESUME LOGIC ---
-    # 1. Search for the newest epoch file in the specific experiment folder
+    # DYNAMIC RESUME LOGIC
     $LatestEpoch = Get-ChildItem -Path $SaveModelDir -Filter "epoch_*.pt" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    
-    # 2. Check if a file was actually found
     if ($null -ne $LatestEpoch) {
-        # File found! Append it to the command
         $ResumeModelPath = $LatestEpoch.FullName
         $TrainCommand += ' --trained-model "' + $ResumeModelPath + '"'
         Write-Host "[INFO] Found existing checkpoint. Resuming training from: $($LatestEpoch.Name)" -ForegroundColor Cyan
     } else {
-        # Folder is empty, do nothing to the command
         Write-Host "[INFO] No previous epochs found. Starting brand new training from scratch." -ForegroundColor Green
     }
-    # ----------------------------
 
     if ($DRY_RUN) { Write-Host "[DRY RUN] $TrainCommand" -ForegroundColor Magenta }
     else { Write-Host $TrainCommand; Invoke-Expression $TrainCommand }
@@ -224,25 +222,15 @@ function Run-E5-Inference {
     $OutputDir = "$ResultsDir\$ExpName"
     if (!(Test-Path "$OutputDir")) { New-Item -ItemType Directory -Path "$OutputDir" -Force | Out-Null }
     
-    
     Write-Host "Running inference using model: $ModelPath"
-
-    Write-Host "`n[+] [INFERENCE] Evaluating Model for: $ExpName at $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")" -ForegroundColor Yellow
-    Write-Host "    -> Test Root : $($env:DATA_ROOT)" -ForegroundColor DarkGray
-    
     $Timestamp = Get-Date -Format "ddMMyyyy_HHmmss"
     $SaveResultLoc = "$OutputDir\results_${Timestamp}_raw.txt"
     Set-Location -Path "$ScriptDir"
 
-    
     $InfCommand = 'python main.py --inference --model-forward-with-file-name --trained-model "' + $ModelPath + '" --batch-size 1 --feature_type ' + $feat + ' > "' + $SaveResultLoc + '"'
-    # $InfCommand = 'python main.py --inference --model-forward-with-file-name --trained-model "' + $ModelPath + '" --batch-size 1 --feature_type ' + $feat
 
     if ($DRY_RUN) { Write-Host "[DRY RUN] $InfCommand" -ForegroundColor Magenta }
-    else { 
-        Write-Host $InfCommand
-        Invoke-Expression $InfCommand 
-    }
+    else { Write-Host $InfCommand; Invoke-Expression $InfCommand }
 }
 
 function Run-E5-Scoring {
@@ -254,10 +242,8 @@ function Run-E5-Scoring {
     $OutputDir = "$ResultsDir\$ExpName"
     $MetaPath = "$TargetDir\" + $EvalProtoName
 
-    # Auto-find the newest result file for this feature
     if (Test-Path $OutputDir) {
         $newestRawFile = Get-ChildItem -Path $OutputDir -Filter "*.txt" | Where-Object { $_.Name -like "*raw.txt" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        
         if ($newestRawFile) {
             $SaveResultLoc = $newestRawFile.FullName
             $ScoreCommand = 'python "' + $ScoringScript + '" --score-file "' + $SaveResultLoc + '" --meta-file "' + $MetaPath + '" --exp-name "' + $ExpName + '"'
@@ -319,29 +305,156 @@ function Menu-E5-Ablation {
         }
     }
 }
+
+# =========================================================
+# E6 SPECIFIC FUNCTIONS (ARCHITECTURE ABLATION)
+# =========================================================
+
+function Run-E6-Train {
+    param ([string]$arch)
+    Write-Host "`n[+] [TRAIN] Starting E6 $($arch.ToUpper())..." -ForegroundColor Yellow
+    
+    $ExpName = "E6_$arch"
+    $TargetDir = "$ExpDir\E4" # Reusing E4 data just like E5
+    $env:DATA_ROOT = $TargetDir
+    $env:TRAIN_PROTO = "\" + $TrainProtoName
+    $env:LIST_NAME = $TrainListName
+    $env:TEST_PROTO = "\" + $EvalProtoName
+
+    $SaveModelDir = "$ModelsDir\$ExpName"
+    if (-not (Test-Path -Path $SaveModelDir)) { New-Item -ItemType Directory -Path $SaveModelDir -Force | Out-Null }
+    Set-Location -Path "$ScriptDir"
+
+    # Base training command (Forced to LFCC feature for control)
+    $TrainCommand = 'python -u main.py --epochs 10 --num-workers 4 --batch-size 4 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name --run-name "' + $ExpName + '" --feature_type lfcc --architecture ' + $arch
+    
+    # DYNAMIC RESUME LOGIC
+    $LatestEpoch = Get-ChildItem -Path $SaveModelDir -Filter "epoch_*.pt" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($null -ne $LatestEpoch) {
+        $ResumeModelPath = $LatestEpoch.FullName
+        $TrainCommand += ' --trained-model "' + $ResumeModelPath + '"'
+        Write-Host "[INFO] Found existing checkpoint. Resuming training from: $($LatestEpoch.Name)" -ForegroundColor Cyan
+    } else {
+        Write-Host "[INFO] No previous epochs found. Starting brand new training from scratch." -ForegroundColor Green
+    }
+
+    if ($DRY_RUN) { Write-Host "[DRY RUN] $TrainCommand" -ForegroundColor Magenta }
+    else { Write-Host $TrainCommand; Invoke-Expression $TrainCommand }
+}
+
+function Run-E6-Inference {
+    param ([string]$arch)
+    Write-Host "`n[+] [INFERENCE] Evaluating E6 $($arch.ToUpper())..." -ForegroundColor Yellow
+    
+    $ExpName = "E6_$arch"
+    $TargetDir = "$ExpDir\E4"
+    $env:DATA_ROOT = $TargetDir
+    $env:TEST_PROTO = "\" + $EvalProtoName
+    $env:LIST_NAME = $EvalListName
+
+    $SaveModelDir = "$ModelsDir\$ExpName"
+    $ModelPath = "$SaveModelDir\trained_network.pt"
+    $OutputDir = "$ResultsDir\$ExpName"
+    if (!(Test-Path "$OutputDir")) { New-Item -ItemType Directory -Path "$OutputDir" -Force | Out-Null }
+    
+    Write-Host "Running inference using model: $ModelPath"
+    $Timestamp = Get-Date -Format "ddMMyyyy_HHmmss"
+    $SaveResultLoc = "$OutputDir\results_${Timestamp}_raw.txt"
+    Set-Location -Path "$ScriptDir"
+
+    # Forced to LFCC and specific architecture
+    $InfCommand = 'python main.py --inference --model-forward-with-file-name --trained-model "' + $ModelPath + '" --batch-size 1 --feature_type lfcc --architecture ' + $arch + ' > "' + $SaveResultLoc + '"'
+
+    if ($DRY_RUN) { Write-Host "[DRY RUN] $InfCommand" -ForegroundColor Magenta }
+    else { Write-Host $InfCommand; Invoke-Expression $InfCommand }
+}
+
+function Run-E6-Scoring {
+    param ([string]$arch)
+    Write-Host "`n[+] [SCORING] Calculating EER for E6 $($arch.ToUpper())..." -ForegroundColor Yellow
+    
+    $ExpName = "E6_$arch"
+    $TargetDir = "$ExpDir\E4"
+    $OutputDir = "$ResultsDir\$ExpName"
+    $MetaPath = "$TargetDir\" + $EvalProtoName
+
+    if (Test-Path $OutputDir) {
+        $newestRawFile = Get-ChildItem -Path $OutputDir -Filter "*.txt" | Where-Object { $_.Name -like "*raw.txt" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($newestRawFile) {
+            $SaveResultLoc = $newestRawFile.FullName
+            $ScoreCommand = 'python "' + $ScoringScript + '" --score-file "' + $SaveResultLoc + '" --meta-file "' + $MetaPath + '" --exp-name "' + $ExpName + '"'
+            if ($DRY_RUN) { Write-Host "[DRY RUN] $ScoreCommand" -ForegroundColor Magenta }
+            else { Write-Host $ScoreCommand; Invoke-Expression $ScoreCommand }
+        } else { Write-Host "[-] No raw inference files found in $OutputDir. Run Inference first!" -ForegroundColor Red }
+    } else { Write-Host "[-] Directory $OutputDir does not exist. Run Inference first!" -ForegroundColor Red }
+}
+
+function Menu-E6-Action {
+    param ([string]$arch)
+    $keepActionMenu = $true
+    while ($keepActionMenu) {
+        Write-Host "`n------------------------------------------" -ForegroundColor Yellow
+        Write-Host "   ACTION MENU FOR: E6 $($arch.ToUpper())" -ForegroundColor Yellow
+        Write-Host "------------------------------------------" -ForegroundColor Yellow
+        Write-Host "1. Train Only"
+        Write-Host "2. Inference Only"
+        Write-Host "3. Scoring Only"
+        Write-Host "4. Run All 3 (Train -> Inference -> Score)"
+        Write-Host "5. Go Back to Architectures"
+
+        $actChoice = Read-Host "Select an action"
+        switch ($actChoice) {
+            "1" { Run-E6-Train -arch $arch }
+            "2" { Run-E6-Inference -arch $arch }
+            "3" { Run-E6-Scoring -arch $arch }
+            "4" { 
+                Run-E6-Train -arch $arch
+                Run-E6-Inference -arch $arch
+                Run-E6-Scoring -arch $arch
+            }
+            "5" { $keepActionMenu = $false }
+            Default { Write-Host "Invalid choice." -ForegroundColor Red }
+        }
+    }
+}
+
+function Menu-E6-Ablation {
+    $keepE6Menu = $true
+    while ($keepE6Menu) {
+        Write-Host "`n==========================================" -ForegroundColor Cyan
+        Write-Host "   E6: ARCHITECTURE ABLATION SUBMENU" -ForegroundColor Cyan
+        Write-Host "==========================================" -ForegroundColor Cyan
+        Write-Host "1. LCNN (Baseline)"
+        Write-Host "2. ResNet"
+        Write-Host "3. Return to Main Menu"
+
+        $e6Choice = Read-Host "Select an Architecture to work with"
+        switch ($e6Choice) {
+            "1" { Menu-E6-Action -arch "lcnn" }
+            "2" { Menu-E6-Action -arch "resnet" }
+            "3" { Write-Host "Returning to Main Menu..." -ForegroundColor Green; $keepE6Menu = $false }
+            Default { Write-Host "Invalid choice. Please select 1-3." -ForegroundColor Red }
+        }
+    }
+}
+
+
+# =========================================================
+# STANDARD EXPERIMENT RUNNER
+# =========================================================
+
 function Run-FullExperiment {
     param ([string]$ExpName)
     Write-Host "`n==========================================" -ForegroundColor Green
     Write-Host "   STARTING FULL EXPERIMENT: $ExpName" -ForegroundColor Green
     Write-Host "==========================================" -ForegroundColor Green
     
-    # 1. Run training, but DO NOT assign it to a variable!
-    # This allows the training logs to print normally to your screen.
     Run-Train -ExpName $ExpName
-    
-    # 2. Run inference WITHOUT passing the model path. 
-    # Your script will automatically find the model using its internal logic!
     $scorePath = Run-Inference -ExpName $ExpName
-    
-    # 3. Run scoring
     Run-Scoring -ScoreFile $scorePath -ExpName $ExpName
 
     Write-Host "`n[SUCCESS] EXPERIMENT $ExpName COMPLETED!" -ForegroundColor Green
 }
-
-# ---------------------------------------------------------
-# MAIN MENU
-# ---------------------------------------------------------
 
 function Select-Experiment {
     Write-Host "`n--- Select Experiment ---" -ForegroundColor Cyan
@@ -357,6 +470,10 @@ function Select-Experiment {
     }
 }
 
+# ---------------------------------------------------------
+# MAIN MENU
+# ---------------------------------------------------------
+
 $keepRunning = $true
 while ($keepRunning) {
     Write-Host "`n==========================================" -ForegroundColor Cyan
@@ -367,8 +484,9 @@ while ($keepRunning) {
     Write-Host "2. Run Inference for an Experiment"
     Write-Host "3. Run Scoring for an Experiment"
     Write-Host "4. Run End-to-End Experiment"
-    Write-Host "5. Open E5 (Feature Ablation) Submenu"  # <--- FIX THIS
-    Write-Host "6. Exit"                                  # <--- FIX THIS
+    Write-Host "5. Open E5 (Feature Ablation) Submenu"
+    Write-Host "6. Open E6 (Architecture Ablation) Submenu"
+    Write-Host "7. Exit"
     
     $mainChoice = Read-Host "Select an option"
 
@@ -390,7 +508,8 @@ while ($keepRunning) {
             }
         }
         "4" { $exp = Select-Experiment; if ($exp) { Run-FullExperiment -ExpName $exp } }
-        "5" { Menu-E5-Ablation } # <--- TRIGGER THE E5 MENU HERE
-        "6" { Write-Host "`nExiting Pipeline Manager..." -ForegroundColor Green; $keepRunning = $false }
+        "5" { Menu-E5-Ablation }
+        "6" { Menu-E6-Ablation }
+        "7" { Write-Host "`nExiting Pipeline Manager..." -ForegroundColor Green; $keepRunning = $false }
     }
 }

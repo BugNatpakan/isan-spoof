@@ -1359,5 +1359,72 @@ class LinearInitialized(torch_nn.Module):
         """
         return torch.matmul(x, self.weight)
 
+class ResNetBlock(torch_nn.Module):
+    """ Basic ResNet Block with skip connections """
+    def __init__(self, in_channels, out_channels, stride=1):
+        super(ResNetBlock, self).__init__()
+        self.conv1 = torch_nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = torch_nn.BatchNorm2d(out_channels)
+        self.relu = torch_nn.ReLU(inplace=True)
+        self.conv2 = torch_nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = torch_nn.BatchNorm2d(out_channels)
+
+        self.shortcut = torch_nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = torch_nn.Sequential(
+                torch_nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                torch_nn.BatchNorm2d(out_channels)
+            )
+
+    def forward(self, x):
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        out += self.shortcut(x)
+        out = self.relu(out)
+        return out
+
+class ResNet_Backend(torch_nn.Module):
+    """ ResNet Backend for ASVspoof matching LCNN tensor shapes """
+    def __init__(self):
+        super(ResNet_Backend, self).__init__()
+        self.in_channels = 32
+
+        # Initial Convolution
+        self.conv1 = torch_nn.Conv2d(1, 32, kernel_size=5, stride=1, padding=2, bias=False)
+        self.bn1 = torch_nn.BatchNorm2d(32)
+        self.relu = torch_nn.ReLU(inplace=True)
+        self.maxpool = torch_nn.MaxPool2d(kernel_size=2, stride=2)
+
+        # ResNet Blocks
+        self.layer1 = self._make_layer(32, 2, stride=1)
+        self.layer2 = self._make_layer(64, 2, stride=2)
+        self.layer3 = self._make_layer(128, 2, stride=2)
+
+        # Adaptive pool to force the Frequency dimension to 1, leaving Time dynamic
+        self.adaptive_pool = torch_nn.AdaptiveAvgPool2d((None, 1))
+
+    def _make_layer(self, out_channels, blocks, stride):
+        layers = []
+        layers.append(ResNetBlock(self.in_channels, out_channels, stride))
+        self.in_channels = out_channels
+        for _ in range(1, blocks):
+            layers.append(ResNetBlock(self.in_channels, out_channels, 1))
+        return torch_nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+
+        # Output shape is currently: (Batch, Channels=128, Time, Freq)
+        # We pool the frequency dimension down to 1 so the BLSTM receives exactly 128 dimensions!
+        x = self.adaptive_pool(x) 
+        return x
+    
 if __name__ == "__main__":
     print("Definition of block NN")
