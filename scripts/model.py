@@ -229,27 +229,29 @@ class Model(torch_nn.Module):
                 torch_nn.Linear(lstm_input, self.v_emd_dim)
             )
             
-            # old code for LFCC front-end
-            # self.m_frontend.append(
-            #     nii_front_end.LFCC(self.frame_lens[idx],
-            #                        self.frame_hops[idx],
-            #                        self.fft_n[idx],
-            #                        self.m_target_sr,
-            #                        self.lfcc_dim[idx],
-            #                        with_energy=True,
-            #                        max_freq = self.lfcc_max_freq)
-            # )
-            
-            self.m_frontend.append(
-                nii_front_end.UniversalFeatureExtractor(
-                    feature_type=args.feature_type, 
-                    fl=self.frame_lens[idx],
-                    fs=self.frame_hops[idx],
-                    fn=self.fft_n[idx],
-                    sr=self.m_target_sr,
-                    filter_num=self.lfcc_dim[idx]
+            if args.feature_type.lower() == 'lfcc':
+                # Use the original, highly accurate LFCC extractor with constraints
+                self.m_frontend.append(
+                    nii_front_end.LFCC(self.frame_lens[idx],
+                                       self.frame_hops[idx],
+                                       self.fft_n[idx],
+                                       self.m_target_sr,
+                                       self.lfcc_dim[idx],
+                                       with_energy=True,
+                                       max_freq=self.lfcc_max_freq)
                 )
-            )
+            else:
+                # Use the universal extractor for MFCC, Fusion, etc.
+                self.m_frontend.append(
+                    nii_front_end.UniversalFeatureExtractor(
+                        feature_type=args.feature_type, 
+                        fl=self.frame_lens[idx],
+                        fs=self.frame_hops[idx],
+                        fn=self.fft_n[idx],
+                        sr=self.m_target_sr,
+                        filter_num=self.lfcc_dim[idx]
+                    )
+                )
 
         self.m_frontend = torch_nn.ModuleList(self.m_frontend)
         self.m_transform = torch_nn.ModuleList(self.m_transform)

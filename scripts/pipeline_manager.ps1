@@ -123,7 +123,7 @@ function Run-E5-Train {
 
     $TrainCommand = 'python -u main.py --epochs 10 --num-workers 4 --batch-size 4 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name --run-name "' + $ExpName + '" --feature_type ' + $feat
 
-    $resumeTraining = $false
+    $resumeTraining = $false  # Set to $true to enable auto-resume from latest epoch
     if ($resumeTraining) {
         $LatestEpoch = Get-ChildItem -Path $SaveModelDir -Filter "epoch_*.pt" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($null -ne $LatestEpoch) {
@@ -250,9 +250,12 @@ function Run-E6-Train {
     $TrainCommand = 'python -u main.py --epochs 10 --num-workers 4 --batch-size 4 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name --run-name "' + $ExpName + '" --feature_type lfcc --architecture ' + $arch
     
     $LatestEpoch = Get-ChildItem -Path $SaveModelDir -Filter "epoch_*.pt" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($null -ne $LatestEpoch) {
-        $TrainCommand += ' --trained-model "' + $LatestEpoch.FullName + '"'
-        Write-Host "[INFO] Resuming training from: $($LatestEpoch.Name)" -ForegroundColor Cyan
+    
+    if ($resumeTraining) {
+        if ($null -ne $LatestEpoch) {
+            $TrainCommand += ' --trained-model "' + $LatestEpoch.FullName + '"'
+            Write-Host "[INFO] Resuming training from: $($LatestEpoch.Name)" -ForegroundColor Cyan
+        }
     }
 
     if ($DRY_RUN) { Write-Host "[DRY RUN] $TrainCommand" -ForegroundColor Magenta }
@@ -387,7 +390,7 @@ function Menu-E6-Ablation {
         switch ($e6Choice) {
             "1" { Menu-E6-Action -arch "lcnn" }
             "2" { Menu-E6-Action -arch "resnet" }
-            "3" { Menu-E6-GMM-Action }  # <--- Now opens the new GMM Action Menu!
+            "3" { Menu-E6-GMM-Action }
             "4" { Write-Host "Returning to Main Menu..." -ForegroundColor Green; $keepE6Menu = $false }
             Default { Write-Host "Invalid choice. Please select 1-4." -ForegroundColor Red }
         }
@@ -443,6 +446,7 @@ while ($keepRunning) {
     Write-Host "5. Open E5 (Feature Ablation) Submenu"
     Write-Host "6. Open E6 (Architecture Ablation) Submenu"
     Write-Host "7. Exit"
+    Write-Host "8. run custom pipeline"
     
     $mainChoice = Read-Host "Select an option"
 
@@ -467,5 +471,27 @@ while ($keepRunning) {
         "5" { Menu-E5-Ablation }
         "6" { Menu-E6-Ablation }
         "7" { Write-Host "`nExiting Pipeline Manager..." -ForegroundColor Green; $keepRunning = $false }
+        "8" { 
+            Write-Host "`n[Custom pipeline] Running E5-2 (fusion), E6-2, E6-3" -ForegroundColor Yellow
+            
+            # # run E5-3 (fusion)
+            # Write-Host "`n[+] [Fusion BASELINE] Starting Full Fusion Pipeline..." -ForegroundColor Yellow
+            # $customFeat = "fusion"  # Change to "mfcc", "cqcc", or "fusion" to test other features
+            # Run-E5-Train -feat $customFeat; Run-E5-Inference -feat $customFeat; Run-E5-Scoring -feat $customFeat
+
+
+            # run E6-2 (ResNet)
+            $customArch = "resnet"  
+            Write-Host "`n[+] [ResNet BASELINE] Starting Full ResNet Pipeline..." -ForegroundColor Yellow
+            Run-E6-Train -arch $customArch
+            Run-E6-Inference -arch $customArch
+            Run-E6-Scoring -arch $customArch
+
+            # # run E6-3 (GMM)
+            # Write-Host "`n[+] [GMM BASELINE] Starting Full GMM Pipeline..." -ForegroundColor Yellow
+            # Set-Location -Path "$ScriptDir"
+            # $GmmCommand = 'python run_gmm.py'
+            # Invoke-Expression $GmmCommand 
+        }
     }
 }
