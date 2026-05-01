@@ -101,9 +101,9 @@ def evaluate_experiment(score_file, meta_file, exp_name):
     min_dcf = calculate_minDCF(y_true, y_score)
     
     # Define the strict threshold
-    threshold = get_strict_threshold(y_true, y_score, target_far=0.01)
+    # threshold = get_strict_threshold(y_true, y_score, target_far=0.01)
     # threshold = 0
-    # threshold = eer_threshold
+    threshold = eer_threshold
 
     # 6. Calculate Correct Guesses AND New Errors based on STRICT threshold
     bonafide_idx = (y_true == 1)

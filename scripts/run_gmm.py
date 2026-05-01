@@ -5,13 +5,14 @@ import torchaudio
 from sklearn.mixture import GaussianMixture
 import time
 from datetime import datetime
+from tqdm import tqdm  # <-- Added tqdm
 
 # --- CONFIGURATION ---
 DATA_ROOT = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\experiment\E4"
 TRAIN_PROTO = os.path.join(DATA_ROOT, "metadata.train.txt")
 EVAL_PROTO = os.path.join(DATA_ROOT, "metadata.eval.txt")
 dt = datetime.now().strftime("%Y%m%d_%H%M%S")
-RESULTS_FILE = os.path.join(r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\E6_gmm", f"results_{dt}_clean.txt")
+RESULTS_FILE = os.path.join(r"D:\work\AI frontier\project AntiSpoof\isan-spoof\results\E6_gmm", f"results_{dt}_raw.txt")
 
 N_COMPONENTS = 128 # Standard for ASVspoof GMM baselines
 SUBSAMPLE_RATE = 10 # Take 1 out of every 10 frames to prevent RAM crashes
@@ -26,6 +27,10 @@ lfcc_extractor = torchaudio.transforms.LFCC(
 
 def extract_features(flac_path):
     """ Loads audio and returns transposed LFCC frames """
+    if not os.path.exists(flac_path):
+        print(f"FILE NOT FOUND: {flac_path}")
+        return None
+    
     try:
         waveform, sr = torchaudio.load(flac_path)
         # Ensure 16k sample rate
@@ -47,12 +52,13 @@ def train_gmm():
     with open(TRAIN_PROTO, 'r') as f:
         lines = f.readlines()
 
-    for idx, line in enumerate(lines):
+    # Wrapped the loop in tqdm for a beautiful progress bar
+    for line in tqdm(lines, desc="Extracting Train Data", unit="file"):
         parts = line.strip().split()
         if len(parts) < 5: continue
         
         speaker, filename, _, _, label = parts[0], parts[1], parts[2], parts[3], parts[4]
-        file_path = os.path.join(DATA_ROOT, f"{filename}.flac")
+        file_path = os.path.join(DATA_ROOT, "wav_all", f"{filename}.flac")
         
         feats = extract_features(file_path)
         if feats is not None:
@@ -64,38 +70,37 @@ def train_gmm():
             else:
                 spoof_frames.append(feats)
 
-        if idx % 1000 == 0:
-            print(f"Processed {idx}/{len(lines)} training files...")
-
     # Stack all frames into massive 2D arrays
     X_bonafide = np.vstack(bonafide_frames)
     X_spoof = np.vstack(spoof_frames)
-    print(f"Total Bonafide frames for training: {X_bonafide.shape[0]}")
+    print(f"\nTotal Bonafide frames for training: {X_bonafide.shape[0]}")
     print(f"Total Spoof frames for training: {X_spoof.shape[0]}")
 
-    print("--- 2. Fitting Bonafide GMM (This will take a while) ---")
+    print("\n--- 2. Fitting Bonafide GMM (This will take a while) ---")
+    # verbose=2 will print Scikit-Learn's internal progress for the GMM fitting
     gmm_bonafide = GaussianMixture(n_components=N_COMPONENTS, covariance_type='diag', max_iter=100, verbose=2)
     gmm_bonafide.fit(X_bonafide)
 
-    print("--- 3. Fitting Spoof GMM (This will take a while) ---")
+    print("\n--- 3. Fitting Spoof GMM (This will take a while) ---")
     gmm_spoof = GaussianMixture(n_components=N_COMPONENTS, covariance_type='diag', max_iter=100, verbose=2)
     gmm_spoof.fit(X_spoof)
 
     return gmm_bonafide, gmm_spoof
 
 def evaluate_gmm(gmm_bonafide, gmm_spoof):
-    print("--- 4. Evaluating Test Set ---")
+    print("\n--- 4. Evaluating Test Set ---")
     
     with open(EVAL_PROTO, 'r') as f:
         lines = f.readlines()
 
     results = []
-    for idx, line in enumerate(lines):
+    # Wrapped the testing loop in tqdm
+    for line in tqdm(lines, desc="Scoring Test Data", unit="file"):
         parts = line.strip().split()
         if len(parts) < 5: continue
         
         filename = parts[1]
-        file_path = os.path.join(DATA_ROOT, f"{filename}.flac")
+        file_path = os.path.join(DATA_ROOT, "wav_all", f"{filename}.flac")
         
         feats = extract_features(file_path)
         if feats is not None:
@@ -108,16 +113,13 @@ def evaluate_gmm(gmm_bonafide, gmm_spoof):
             
             # Format perfectly matches your PyTorch output
             results.append(f"Output, {filename}, -, {final_score:.6f}\n")
-            
-        if idx % 500 == 0:
-            print(f"Scored {idx}/{len(lines)} test files...")
 
     # Save to your results folder
     os.makedirs(os.path.dirname(RESULTS_FILE), exist_ok=True)
-    with open(RESULTS_FILE, 'w') as f:
+    with open(RESULTS_FILE, 'w', encoding='utf-16') as f:
         f.writelines(results)
     
-    print(f"--- SUCCESS: Raw scores saved to {RESULTS_FILE} ---")
+    print(f"\n--- SUCCESS: Raw scores saved to {RESULTS_FILE} ---")
 
 if __name__ == "__main__":
     gmm_b, gmm_s = train_gmm()

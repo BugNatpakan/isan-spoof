@@ -163,47 +163,61 @@ class Model(torch_nn.Module):
             
             lstm_input = 160 if args.feature_type.lower() == 'fusion' else 96
             
-            self.m_transform.append(
-                torch_nn.Sequential(
-                    torch_nn.Conv2d(1, 64, [5, 5], 1, padding=[2, 2]),
-                    nii_nn.MaxFeatureMap2D(),
-                    torch.nn.MaxPool2d([2, 2], [2, 2]),
+            # --- E6 ARCHITECTURE SWITCH ---
+            architecture = getattr(args, 'architecture', 'lcnn').lower()
+            
+            if architecture == 'lcnn':
+                self.m_transform.append(
+                    torch_nn.Sequential(
+                        torch_nn.Conv2d(1, 64, [5, 5], 1, padding=[2, 2]),
+                        nii_nn.MaxFeatureMap2D(),
+                        torch.nn.MaxPool2d([2, 2], [2, 2]),
 
-                    torch_nn.Conv2d(32, 64, [1, 1], 1, padding=[0, 0]),
-                    nii_nn.MaxFeatureMap2D(),
-                    torch_nn.BatchNorm2d(32, affine=False),
-                    torch_nn.Conv2d(32, 96, [3, 3], 1, padding=[1, 1]),
-                    nii_nn.MaxFeatureMap2D(),
+                        torch_nn.Conv2d(32, 64, [1, 1], 1, padding=[0, 0]),
+                        nii_nn.MaxFeatureMap2D(),
+                        torch_nn.BatchNorm2d(32, affine=False),
+                        torch_nn.Conv2d(32, 96, [3, 3], 1, padding=[1, 1]),
+                        nii_nn.MaxFeatureMap2D(),
 
-                    torch.nn.MaxPool2d([2, 2], [2, 2]),
-                    torch_nn.BatchNorm2d(48, affine=False),
+                        torch.nn.MaxPool2d([2, 2], [2, 2]),
+                        torch_nn.BatchNorm2d(48, affine=False),
 
-                    torch_nn.Conv2d(48, 96, [1, 1], 1, padding=[0, 0]),
-                    nii_nn.MaxFeatureMap2D(),
-                    torch_nn.BatchNorm2d(48, affine=False),
-                    torch_nn.Conv2d(48, 128, [3, 3], 1, padding=[1, 1]),
-                    nii_nn.MaxFeatureMap2D(),
+                        torch_nn.Conv2d(48, 96, [1, 1], 1, padding=[0, 0]),
+                        nii_nn.MaxFeatureMap2D(),
+                        torch_nn.BatchNorm2d(48, affine=False),
+                        torch_nn.Conv2d(48, 128, [3, 3], 1, padding=[1, 1]),
+                        nii_nn.MaxFeatureMap2D(),
 
-                    torch.nn.MaxPool2d([2, 2], [2, 2]),
+                        torch.nn.MaxPool2d([2, 2], [2, 2]),
 
-                    torch_nn.Conv2d(64, 128, [1, 1], 1, padding=[0, 0]),
-                    nii_nn.MaxFeatureMap2D(),
-                    torch_nn.BatchNorm2d(64, affine=False),
-                    torch_nn.Conv2d(64, 64, [3, 3], 1, padding=[1, 1]),
-                    nii_nn.MaxFeatureMap2D(),
-                    torch_nn.BatchNorm2d(32, affine=False),
+                        torch_nn.Conv2d(64, 128, [1, 1], 1, padding=[0, 0]),
+                        nii_nn.MaxFeatureMap2D(),
+                        torch_nn.BatchNorm2d(64, affine=False),
+                        torch_nn.Conv2d(64, 64, [3, 3], 1, padding=[1, 1]),
+                        nii_nn.MaxFeatureMap2D(),
+                        torch_nn.BatchNorm2d(32, affine=False),
 
-                    torch_nn.Conv2d(32, 64, [1, 1], 1, padding=[0, 0]),
-                    nii_nn.MaxFeatureMap2D(),
-                    torch_nn.BatchNorm2d(32, affine=False),
-                    torch_nn.Conv2d(32, 64, [3, 3], 1, padding=[1, 1]),
-                    nii_nn.MaxFeatureMap2D(),
-                    torch_nn.MaxPool2d([2, 2], [2, 2]),
-                    
-                    torch_nn.Dropout(0.7)
+                        torch_nn.Conv2d(32, 64, [1, 1], 1, padding=[0, 0]),
+                        nii_nn.MaxFeatureMap2D(),
+                        torch_nn.BatchNorm2d(32, affine=False),
+                        torch_nn.Conv2d(32, 64, [3, 3], 1, padding=[1, 1]),
+                        nii_nn.MaxFeatureMap2D(),
+                        torch_nn.MaxPool2d([2, 2], [2, 2]),
+                        
+                        torch_nn.Dropout(0.7)
+                    )
                 )
-            )
-
+            elif architecture == 'resnet':
+                # E6 ResNet Backend
+                self.m_transform.append(nii_nn.ResNet_Backend()) 
+                
+                # ResNets usually output a different dimension than LCNNs.
+                # Assuming our ResNet outputs 128 channels:
+                lstm_input = 128
+            else:
+                raise ValueError(f"Unknown architecture: {architecture}")
+            
+            
             self.m_before_pooling.append(
                 torch_nn.Sequential(
                     nii_nn.BLSTMLayer(lstm_input, lstm_input),
