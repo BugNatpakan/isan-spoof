@@ -81,8 +81,11 @@ function Run-Inference {
     Write-Host "`n[+] [INFERENCE] Evaluating Model for: $ExpName" -ForegroundColor Yellow
     
     Set-Location -Path "$ScriptDir"
-    $InfCommand = 'python main.py --inference --model-forward-with-file-name --trained-model "' + $ModelPath + '" --batch-size 1 > "' + $SaveResultLoc + '"'
-
+    
+    # --- THE FIX IS ON THIS LINE ---
+    # We lock the features to 'lfcc' and 'lcnn' so it matches the E4 weights perfectly!
+    $InfCommand = 'python main.py --inference --model-forward-with-file-name --trained-model "' + $ModelPath + '" --batch-size 1 --feature_type lfcc --architecture lcnn > "' + $SaveResultLoc + '"'
+   
     if ($DRY_RUN) { Write-Host "[DRY RUN] $InfCommand" -ForegroundColor Magenta } 
     else { Write-Host $InfCommand; Invoke-Expression $InfCommand }
 
@@ -95,7 +98,7 @@ function Run-Scoring {
     
     Write-Host "`n[+] [SCORING] Calculating EER for $ExpName..." -ForegroundColor Yellow
     $ScoreCommand = 'python "' + $ScoringScript + '" --score-file "' + $ScoreFile + '" --meta-file "' + $MetaPath + '"' + ' --exp-name "' + $ExpName + '"'
-
+    # 'python "D:\work\AI frontier\project AntiSpoof\isan-spoof\results\final_score.py" --score-file "' + $ScoreFile + '" --meta-file "' + $MetaPath + '"' + ' --exp-name "' + $ExpName + '"'
     if ($DRY_RUN) { Write-Host "[DRY RUN] $ScoreCommand" -ForegroundColor Magenta } 
     else { Write-Host $ScoreCommand; Invoke-Expression $ScoreCommand }
 }
@@ -104,13 +107,126 @@ function Run-Scoring {
 # E5 SPECIFIC FUNCTIONS (FEATURE ABLATION)
 # =========================================================
 
-function Run-E5-Train { param ([string]$feat) <# ... Omitted for brevity, assumed intact from previous ... #> }
-function Run-E5-Inference { param ([string]$feat) <# ... Omitted for brevity ... #> }
-function Run-E5-Scoring { param ([string]$feat) <# ... Omitted for brevity ... #> }
-# (Keep your existing E5 code exactly as it was, I will just output the E6 changes below)
+function Run-E5-Train {
+    param ([string]$feat)
+    Write-Host "`n[+] [TRAIN] Starting E5 $($feat.ToUpper())..." -ForegroundColor Yellow
+    $ExpName = "E5_$feat"
+    $TargetDir = "$ExpDir\E4"
+    $env:DATA_ROOT = $TargetDir
+    $env:TRAIN_PROTO = "\" + $TrainProtoName
+    $env:LIST_NAME = $TrainListName
+    $env:TEST_PROTO = "\" + $EvalProtoName
+
+    $SaveModelDir = "$ModelsDir\$ExpName"
+    if (-not (Test-Path -Path $SaveModelDir)) { New-Item -ItemType Directory -Path $SaveModelDir -Force | Out-Null }
+    Set-Location -Path "$ScriptDir"
+
+    $TrainCommand = 'python -u main.py --epochs 10 --num-workers 4 --batch-size 4 --save-model-dir "' + $SaveModelDir + '" --model-forward-with-file-name --run-name "' + $ExpName + '" --feature_type ' + $feat
+
+    $resumeTraining = $false
+    if ($resumeTraining) {
+        $LatestEpoch = Get-ChildItem -Path $SaveModelDir -Filter "epoch_*.pt" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($null -ne $LatestEpoch) {
+            $TrainCommand += ' --trained-model "' + $LatestEpoch.FullName + '"'
+            Write-Host "[INFO] Resuming training from: $($LatestEpoch.Name)" -ForegroundColor Cyan
+        }
+    }
+
+    Write-Host "    -> Data Root  : $($env:DATA_ROOT)" -ForegroundColor DarkGray
+    Write-Host "    -> Feature    : $feat" -ForegroundColor DarkGray
+    Write-Host "    -> Model Dir  : $SaveModelDir" -ForegroundColor DarkGray
+
+    if ($DRY_RUN) { Write-Host "[DRY RUN] $TrainCommand" -ForegroundColor Magenta }
+    else { Write-Host $TrainCommand; Invoke-Expression $TrainCommand }
+}
+
+function Run-E5-Inference {
+    param ([string]$feat)
+    Write-Host "`n[+] [INFERENCE] Evaluating E5 $($feat.ToUpper())..." -ForegroundColor Yellow
+    $ExpName = "E5_$feat"
+    $TargetDir = "$ExpDir\E4"
+    $env:DATA_ROOT = $TargetDir
+    $env:TEST_PROTO = "\" + $EvalProtoName
+    $env:LIST_NAME = $EvalListName
+
+    $ModelPath = "$ModelsDir\$ExpName\trained_network.pt"
+    $OutputDir = "$ResultsDir\$ExpName"
+    if (!(Test-Path "$OutputDir")) { New-Item -ItemType Directory -Path "$OutputDir" -Force | Out-Null }
+
+    $Timestamp = Get-Date -Format "ddMMyyyy_HHmmss"
+    $SaveResultLoc = "$OutputDir\results_${Timestamp}_raw.txt"
+    Set-Location -Path "$ScriptDir"
+
+    $InfCommand = 'python main.py --inference --model-forward-with-file-name --trained-model "' + $ModelPath + '" --batch-size 1 --feature_type ' + $feat + ' > "' + $SaveResultLoc + '"'
+
+    if ($DRY_RUN) { Write-Host "[DRY RUN] $InfCommand" -ForegroundColor Magenta }
+    else { Write-Host $InfCommand; Invoke-Expression $InfCommand }
+}
+
+function Run-E5-Scoring {
+    param ([string]$feat)
+    Write-Host "`n[+] [SCORING] Calculating EER for E5 $($feat.ToUpper())..." -ForegroundColor Yellow
+    $ExpName = "E5_$feat"
+    $MetaPath = "$ExpDir\E4\" + $EvalProtoName
+    $OutputDir = "$ResultsDir\$ExpName"
+
+    if (Test-Path $OutputDir) {
+        $newestRawFile = Get-ChildItem -Path $OutputDir -Filter "*.txt" | Where-Object { $_.Name -like "*raw.txt" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if ($newestRawFile) {
+            $ScoreCommand = 'python "' + $ScoringScript + '" --score-file "' + $newestRawFile.FullName + '" --meta-file "' + $MetaPath + '" --exp-name "' + $ExpName + '"'
+            if ($DRY_RUN) { Write-Host "[DRY RUN] $ScoreCommand" -ForegroundColor Magenta }
+            else { Invoke-Expression $ScoreCommand }
+        } else { Write-Host "[-] No raw inference files found in $OutputDir. Run inference first." -ForegroundColor Red }
+    } else { Write-Host "[-] Directory $OutputDir does not exist. Run inference first." -ForegroundColor Red }
+}
+
+function Menu-E5-Action {
+    param ([string]$feat)
+    $keepActionMenu = $true
+    while ($keepActionMenu) {
+        Write-Host "`n------------------------------------------" -ForegroundColor Yellow
+        Write-Host "   ACTION MENU FOR: E5 $($feat.ToUpper())" -ForegroundColor Yellow
+        Write-Host "------------------------------------------" -ForegroundColor Yellow
+        Write-Host "1. Train Only"
+        Write-Host "2. Inference Only"
+        Write-Host "3. Scoring Only"
+        Write-Host "4. Run All 3 (Train -> Inference -> Score)"
+        Write-Host "5. Go Back to Features"
+
+        $actChoice = Read-Host "Select an action"
+        switch ($actChoice) {
+            "1" { Run-E5-Train -feat $feat }
+            "2" { Run-E5-Inference -feat $feat }
+            "3" { Run-E5-Scoring -feat $feat }
+            "4" { Run-E5-Train -feat $feat; Run-E5-Inference -feat $feat; Run-E5-Scoring -feat $feat }
+            "5" { $keepActionMenu = $false }
+            Default { Write-Host "Invalid choice." -ForegroundColor Red }
+        }
+    }
+}
 
 function Menu-E5-Ablation {
-    # (Keep your existing Menu-E5-Ablation code)
+    $keepE5Menu = $true
+    while ($keepE5Menu) {
+        Write-Host "`n==========================================" -ForegroundColor Cyan
+        Write-Host "   E5: FEATURE ABLATION SUBMENU" -ForegroundColor Cyan
+        Write-Host "==========================================" -ForegroundColor Cyan
+        Write-Host "1. LFCC (Baseline)"
+        Write-Host "2. MFCC"
+        Write-Host "3. CQCC"
+        Write-Host "4. Fusion (LFCC + MFCC)"
+        Write-Host "5. Return to Main Menu"
+
+        $e5Choice = Read-Host "Select a Feature to work with"
+        switch ($e5Choice) {
+            "1" { Menu-E5-Action -feat "lfcc" }
+            "2" { Menu-E5-Action -feat "mfcc" }
+            "3" { Menu-E5-Action -feat "cqcc" }
+            "4" { Menu-E5-Action -feat "fusion" }
+            "5" { Write-Host "Returning to Main Menu..." -ForegroundColor Green; $keepE5Menu = $false }
+            Default { Write-Host "Invalid choice. Please select 1-5." -ForegroundColor Red }
+        }
+    }
 }
 
 # =========================================================

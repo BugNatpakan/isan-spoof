@@ -114,7 +114,7 @@ class Model(torch_nn.Module):
         # frame length
         self.frame_lens = [320]
         # FFT length
-        self.fft_n = [1024]
+        self.fft_n = [512] if args.feature_type.lower() == 'lfcc' else [1024]
 
         # LFCC dim (base component)
         self.lfcc_dim = [20]

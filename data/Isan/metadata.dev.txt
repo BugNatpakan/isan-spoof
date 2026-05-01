@@ -1,0 +1,4 @@
+ISAN_SPK fake_Typhoon_Isan_000000 - TTS spoof
+ISAN_SPK real_Typhoon_Isan_000014 - - bonafide
+ISAN_SPK real_Typhoon_Isan_000010 - - bonafide
+ISAN_SPK fake_Typhoon_Isan_000011 - TTS spoof
