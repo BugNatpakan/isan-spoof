@@ -7,6 +7,7 @@ Argument parse
 """
 from __future__ import absolute_import
 
+from html import parser
 import os
 import sys
 import argparse
@@ -203,8 +204,17 @@ def f_args_parsed(argument_input = None):
     mes += 'It only process waveform. Other features will not be trimmed.'
     parser.add_argument('--opt-wav-silence-handler', type=int, 
                         default=0, help=mes)
+    
+    
+    mes = 'option to set silence_handler on feature data.\n'
+    parser.add_argument('--feature_type', type=str, default='lfcc', choices=['lfcc', 'mfcc', 'cqcc', 'fusion'])
 
-
+    mes = 'option to set the neural network architecture.\n'
+    parser.add_argument('--architecture', type=str, default='lcnn', 
+                    choices=['lcnn', 'resnet'], 
+                    help='Choose the backend neural network')
+    
+    
     #
     # done
     if argument_input is not None:

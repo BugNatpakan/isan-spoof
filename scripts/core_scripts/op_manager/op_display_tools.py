@@ -33,19 +33,29 @@ def _print_loss(loss_array):
         for data in loss_array:
             mes.append('%6.2f' % (data))
         mes = ' '.join(mes)
-    mes += "| "
+    # mes += "| "
     return mes
 
 def print_train_info(epoch, time_tr, loss_tr, time_val, 
                      loss_val, isbest, lr_info):
     """ Print the information during training
     """
-    mes = "{:>7d} | ".format(epoch)
-    mes = mes + "{:>12.1f} | ".format(time_tr + time_val)
-    mes += _print_loss(loss_tr)
-    mes += _print_loss(loss_val)
+    # ------------old train info------------------
+    # mes = "{:>7d} | ".format(epoch)
+    # mes = mes + "{:>12.1f} | ".format(time_tr + time_val)
+    # mes += _print_loss(loss_tr)
+    # mes += _print_loss(loss_val)
+    # --------------------------------------------
+    
     #mes = mes + "{:>12.4f} | ".format(loss_tr)
     #mes = mes + "{:>12.4f} | ".format(loss_val)    
+    
+    mes = "epoch: {:>7d}".format(epoch)
+    mes = mes + ", time: {:>12.1f} s".format(time_tr + time_val)
+    mes = mes + ", train loss: " + _print_loss(loss_tr)
+    mes = mes + ", dev loss: " + _print_loss(loss_val)
+    
+    
     if isbest:
         mes = mes + "{:>5s}".format("yes")
     else:

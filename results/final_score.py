@@ -6,8 +6,6 @@ from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from sklearn.metrics import roc_curve
 
-YOUR_RUN_ID = "b9714fbbbd1d4831aad74848860d74ef" 
-
 def calculate_eer(y_true, y_score):
     """Calculates the Equal Error Rate (EER) and the best threshold."""
     fpr, tpr, thresholds = roc_curve(y_true, y_score, pos_label=1)
@@ -157,11 +155,34 @@ def evaluate_experiment(score_file, meta_file, exp_name):
     # Optional: Log to MLflow if needed
     try:
         import mlflow
-        with mlflow.start_run(run_id=YOUR_RUN_ID):
+        
+        print("[+] Searching MLflow for matching training run...")
+        
+        # Search MLflow for the training run with the exact same name (e.g., "E5_lfcc")
+        # This assumes you are using the default experiment ID "0"
+        runs = mlflow.search_runs(filter_string=f"tags.mlflow.runName = '{exp_name}'")
+        
+        if not runs.empty:
+            # Grab the ID of the most recent training run with that name
+            auto_run_id = runs.iloc[0].run_id
+            print(f"[+] Found existing MLflow run for {exp_name} (ID: {auto_run_id}). Appending metrics...")
+            mlflow_ctx = mlflow.start_run(run_id=auto_run_id)
+        else:
+            # Fallback just in case training wasn't logged or name mismatched
+            print(f"[!] No training run found for {exp_name}. Creating a new standalone run...")
+            mlflow_ctx = mlflow.start_run(run_name=f"{exp_name}_Scoring")
+            
+        with mlflow_ctx:
+            mlflow.log_metric(f"{exp_name}_EER", eer)
+            mlflow.log_metric(f"{exp_name}_Strict_FAR", strict_far)
+            mlflow.log_metric(f"{exp_name}_Strict_FRR", strict_frr)
+            mlflow.log_metric(f"{exp_name}_Min_DCF", min_dcf)
             mlflow.log_metric(f"{exp_name}_Bona_Correct", bonafide_correct)
             mlflow.log_metric(f"{exp_name}_Spoof_Correct", spoof_correct)
-            mlflow.log_metric(f"{exp_name}_EER", eer)
-    except: pass
+            print("[+] Successfully logged metrics to MLflow!")
+            
+    except Exception as e:
+        print(f"[!] MLflow logging skipped or failed: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

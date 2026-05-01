@@ -161,6 +161,8 @@ class Model(torch_nn.Module):
             if self.lfcc_with_delta:
                 lfcc_dim = lfcc_dim * 3
             
+            lstm_input = 160 if args.feature_type.lower() == 'fusion' else 96
+            
             self.m_transform.append(
                 torch_nn.Sequential(
                     torch_nn.Conv2d(1, 64, [5, 5], 1, padding=[2, 2]),
@@ -204,23 +206,35 @@ class Model(torch_nn.Module):
 
             self.m_before_pooling.append(
                 torch_nn.Sequential(
-                    nii_nn.BLSTMLayer((lfcc_dim//16) * 32, (lfcc_dim//16) * 32),
-                    nii_nn.BLSTMLayer((lfcc_dim//16) * 32, (lfcc_dim//16) * 32)
+                    nii_nn.BLSTMLayer(lstm_input, lstm_input),
+                    nii_nn.BLSTMLayer(lstm_input, lstm_input)
                 )
             )
 
             self.m_output_act.append(
-                torch_nn.Linear((lfcc_dim // 16) * 32, self.v_emd_dim)
+                torch_nn.Linear(lstm_input, self.v_emd_dim)
             )
             
+            # old code for LFCC front-end
+            # self.m_frontend.append(
+            #     nii_front_end.LFCC(self.frame_lens[idx],
+            #                        self.frame_hops[idx],
+            #                        self.fft_n[idx],
+            #                        self.m_target_sr,
+            #                        self.lfcc_dim[idx],
+            #                        with_energy=True,
+            #                        max_freq = self.lfcc_max_freq)
+            # )
+            
             self.m_frontend.append(
-                nii_front_end.LFCC(self.frame_lens[idx],
-                                   self.frame_hops[idx],
-                                   self.fft_n[idx],
-                                   self.m_target_sr,
-                                   self.lfcc_dim[idx],
-                                   with_energy=True,
-                                   max_freq = self.lfcc_max_freq)
+                nii_front_end.UniversalFeatureExtractor(
+                    feature_type=args.feature_type, 
+                    fl=self.frame_lens[idx],
+                    fs=self.frame_hops[idx],
+                    fn=self.fft_n[idx],
+                    sr=self.m_target_sr,
+                    filter_num=self.lfcc_dim[idx]
+                )
             )
 
         self.m_frontend = torch_nn.ModuleList(self.m_frontend)

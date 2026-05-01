@@ -24,6 +24,7 @@ from __future__ import print_function
 
 import sys
 import numpy as np
+from spafe.features.cqcc import cqcc
 
 import torch
 import torch.nn as torch_nn
@@ -360,7 +361,85 @@ class Spectrogram(torch_nn.Module):
         # done
         return sp_amp
 
+import torchaudio.transforms as T
 
+#################
+## E5 Universal Feature Extractor
+#################
+class UniversalFeatureExtractor(torch_nn.Module):
+    def __init__(self, feature_type='mfcc', fl=320, fs=160, fn=512, sr=16000, filter_num=20):
+        super(UniversalFeatureExtractor, self).__init__()
+        self.feature_type = feature_type.lower()
+        self.sr = sr
+        
+        # 1. Setup LFCC (Using the class already in this file)
+        self.lfcc_extractor = LFCC(fl=fl, fs=fs, fn=fn, sr=sr, filter_num=filter_num, 
+                                   with_energy=True, with_emphasis=True, with_delta=True)
+        
+        # 2. Setup MFCC (Using PyTorch's built-in torchaudio)
+        # Note: 60 n_mfcc matches the (20 static + 20 delta + 20 delta-delta) of LFCC
+        # 2. Setup MFCC (Extract 20 static, then compute Deltas to reach 60)
+        self.mfcc_extractor = T.MFCC(sample_rate=sr, n_mfcc=filter_num, melkwargs={"n_mels": filter_num})
+        self.delta_extractor = T.ComputeDeltas()
+
+    def forward(self, x):
+        """
+        x shape: (batch_size, waveform_length)
+        """
+        if self.feature_type == 'lfcc':
+            return self.lfcc_extractor(x)
+            
+        elif self.feature_type == 'mfcc':
+            # 1. Extract 20 static MFCCs -> Shape: (batch, 20, frames)
+            mfcc_static = self.mfcc_extractor(x)
+            
+            # 2. Compute 20 Deltas and 20 Delta-Deltas
+            mfcc_delta = self.delta_extractor(mfcc_static)
+            mfcc_delta2 = self.delta_extractor(mfcc_delta)
+            
+            # 3. Stack them to get 60 dimensions -> Shape: (batch, 60, frames)
+            mfcc_stacked = torch.cat((mfcc_static, mfcc_delta, mfcc_delta2), dim=1)
+            
+            # 4. Permute to match LFCC output -> Shape: (batch, frames, 60)
+            return mfcc_stacked.permute(0, 2, 1)
+        
+        elif self.feature_type == 'cqcc':
+            # CQCC using spafe (requires numpy loop over the batch)
+            batch_size = x.shape[0]
+            cqcc_batch = []
+            
+            for i in range(batch_size):
+                # Move single waveform to CPU numpy array
+                wav_np = x[i].detach().cpu().numpy()
+                
+                # Extract CQCC (60 dimensions to match LFCC/MFCC)
+                # Note: spafe cqcc returns shape (frames, num_ceps)
+                feat = cqcc(wav_np, fs=self.sr, num_ceps=60)
+                
+                # Convert back to tensor and move to original device
+                feat_tensor = torch.from_numpy(feat).float().to(x.device)
+                cqcc_batch.append(feat_tensor)
+            
+            # Stack back into a batch: (batch, frames, n_ceps)
+            return torch.stack(cqcc_batch)
+            
+        elif self.feature_type == 'fusion':
+            # Extract both
+            lfcc_out = self.lfcc_extractor(x)
+            mfcc_out = self.mfcc_extractor(x).permute(0, 2, 1)
+            
+            # Make sure frame lengths match before concatenating
+            min_frames = min(lfcc_out.shape[1], mfcc_out.shape[1])
+            lfcc_out = lfcc_out[:, :min_frames, :]
+            mfcc_out = mfcc_out[:, :min_frames, :]
+            
+            # Concatenate along the feature dimension
+            fusion_out = torch.cat((lfcc_out, mfcc_out), dim=2)
+            return fusion_out
+            
+        else:
+            print(f"Feature type {self.feature_type} not supported yet!")
+            sys.exit(1)
 
 if __name__ == "__main__":
     print("Definition of front-end for Anti-spoofing")

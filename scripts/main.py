@@ -169,7 +169,7 @@ def main():
             if args.trained_model == "":
                 checkpoint = None 
             else:
-                checkpoint = torch.load(args.trained_model)
+                checkpoint = torch.load(args.trained_model, weights_only=False)
                 
             # start training
             nii_nn_wrapper.f_train_wrapper(args, model, 

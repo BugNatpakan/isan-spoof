@@ -248,10 +248,15 @@ class NIIDataSet(torch.utils.data.Dataset):
             self.m_min_seq_len = self.f_adjust_len(self.m_min_seq_len)
 
         # method to load/write raw data
+        # old version, use lambda function
+        # if data_format == nii_dconf.h_dtype_str:
+        #     self.f_load_data = lambda x, y: _data_reader(x, y, self.m_flag_lang)
+        #     self.f_length_data = _data_len_reader
+        #     self.f_write_data = lambda x, y: _data_writer(x, y, self.m_wav_sr)
         if data_format == nii_dconf.h_dtype_str:
-            self.f_load_data = lambda x, y: _data_reader(x, y, self.m_flag_lang)
+            self.f_load_data = self._custom_load_data
             self.f_length_data = _data_len_reader
-            self.f_write_data = lambda x, y: _data_writer(x, y, self.m_wav_sr)
+            self.f_write_data = self._custom_write_data
         else:
             nii_warn.f_print("Unsupported dtype %s" % (data_format))
             nii_warn.f_die("Only supports %s " % (nii_dconf.h_dtype_str))
@@ -300,7 +305,13 @@ class NIIDataSet(torch.utils.data.Dataset):
             nii_warn.f_die("Please check configuration file")
         # done
         return                
-        
+    
+    def _custom_load_data(self, x, y):
+        return _data_reader(x, y, self.m_flag_lang)
+
+    def _custom_write_data(self, x, y):
+        return _data_writer(x, y, self.m_wav_sr)
+    
     def __len__(self):
         """ __len__():
         Return the number of samples in the list
