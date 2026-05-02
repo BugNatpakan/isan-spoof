@@ -4,7 +4,7 @@ This project focuses on anti-spoofing detection for the Isan language, implement
 
 ## Project Structure
 
-- **data/**: Datasets and experimental data (note: data files (.wave, .flac, .mp3) are stored locally and not included in the repository due to size constraints).
+- **data/**: Datasets and experimental data (note: data files (.wav, .flac, .mp3) are stored locally and not included in the repository due to size constraints).
   - ASV_Thai_Isan/: Mixed language datasets
   - Eng/: English datasets
   - experiment/: Experimental data
