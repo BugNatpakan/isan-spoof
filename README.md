@@ -37,24 +37,19 @@ This project focuses on anti-spoofing detection for the Isan language, implement
 
 ### Installation
 
-1. Navigate to the `isan-spoof` directory:
-   ```bash
-   cd isan-spoof
-   ```
-
-2. Create and activate the conda environment:
+1. Create and activate the conda environment:
    ```bash
    conda create -n isan-spoof python=3.8
    conda activate isan-spoof
    ```
 
-3. Install dependencies (if requirements.txt exists):
+2. Install dependencies (if requirements.txt exists):
    ```bash
    pip install -r requirements.txt  # Check if available in scripts/ or root
    ```
    Note: Dependencies may need to be installed based on the scripts used.
 
-4. Ensure data is available locally (not included in repo).
+3. Ensure data is available locally (not included in repo).
 
 ## Usage
 
