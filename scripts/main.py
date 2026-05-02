@@ -12,8 +12,6 @@ from __future__ import absolute_import
 import os
 
 from sympy import python
-if not os.path.exists('checkpoints'):
-    os.makedirs('checkpoints')
 import sys
 
 sys.path.insert(0, os.path.abspath('.'))
