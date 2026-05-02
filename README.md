@@ -66,9 +66,49 @@ This project focuses on anti-spoofing detection for the Isan language, implement
    ```
    This script manages the entire workflow, including training, testing, and evaluation.
 
+### Pipeline Manager Details
+
+The `pipeline_manager.ps1` is an interactive PowerShell script that automates running experiments (E1 to E6). It provides menus to select experiments and actions (Train, Inference, Scoring, or All).
+
+- **Dry Run Mode**: Edit the script to set `$DRY_RUN = $true` to print commands without executing them (useful for testing).
+- **Experiments**:
+  - E1-E4: Standard experiments with different features/models.
+  - E5: Feature ablation (LFCC, MFCC, CQCC, Fusion).
+  - E6: Architecture ablation (GMM, ResNet).
+- **Actions**:
+  - Train: Trains the model for the selected experiment.
+  - Inference: Runs evaluation on the trained model.
+  - Scoring: Calculates EER and other metrics using `final_score.py`.
+  - All: Runs Train -> Inference -> Scoring sequentially.
+- **Usage**: Run the script, select an experiment, then choose an action. The script handles paths, environment variables, and command execution automatically.
+
 ### Individual Scripts
 
-- **GMM Model**: `python run_gmm.py`
+- **Training (NN Model)**: 
+  ```bash
+  cd scripts
+  python -u main.py --epochs 10 --batch-size 8 --save-model-dir "../models/lcnn/CustomExp" --model-forward-with-file-name --run-name "Experimen_Name"`
+  ```
+  Adjust epochs, batch-size, models paths and experiment name as needed.
+
+- **Testing/Inference**: 
+  ```bash
+  cd scripts
+  python main.py --inference --model-forward-with-file-name --trained-model "../models/lcnn/Experiment_Name/trained_network.pt" --batch-size 1 --feature_type lfcc --architecture lcnn > "../results/Experiment_Name/results_raw.txt"
+  ```
+  Update the trained model path and output paths.
+
+- **GMM Model Training/Testing**: 
+  ```bash
+  cd scripts
+  python run_gmm.py
+  ```
+
+- **Scoring**: 
+  ```bash
+  python "../results/final_score.py" --score-file "../results/Experiment_Name/results_raw.txt" --meta-file "../data/experiment/Experiment_Name/metadata.eval.txt" --exp-name "Experiment_Name"
+  
+
 - **Configuration**: Edit `config.py` for settings
 
 ### Viewing Results
