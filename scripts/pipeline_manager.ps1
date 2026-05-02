@@ -8,7 +8,7 @@ $DRY_RUN       = $false   # Set to $false to run actual python scripts
 $BaseDir       = "D:\work\AI frontier\project AntiSpoof\isan-spoof"
 $ScriptDir     = "$BaseDir\scripts"
 $ResultsDir    = "$BaseDir\results"
-$ModelsDir     = "$BaseDir\models\lcnn"
+$ModelsDir     = "$BaseDir\models"
 $ScoringScript = "$BaseDir\results\final_score.py"
 $ExpDir        = "$BaseDir\data\experiment"
 
