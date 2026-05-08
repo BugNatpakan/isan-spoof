@@ -6,7 +6,7 @@ from tqdm import tqdm
 # ==========================================
 # ⚙️ CONFIGURATION - PATH VARIABLES & RATIO
 # ==========================================
-
+random.seed(42)  # For reproducibility
 # 1. Define how many files of each class you want (This is your ratio limit)
 # For example: 1000 bonafide and 1000 spoof = 1:1 ratio
 TARGET_BONAFIDE_COUNT = 1000
@@ -126,6 +126,8 @@ def main():
     final_meta_lines = []
     final_lst_lines = []
     
+    
+    copy_cnt = 0
     for item in tqdm(final_selection, desc="Processing Output"):
         src_path = item["path"]
         dest_path = os.path.join(DEST_FLAC_DIR, item["file_id"] + ".flac")
@@ -133,7 +135,10 @@ def main():
         # 1. Copy the physical FLAC file
         if not os.path.exists(dest_path):
             shutil.copy2(src_path, dest_path)
-            
+            copy_cnt += 1
+        else:
+            tqdm.write(f"⚠️ Warning: Destination file already exists, skipping copy: {dest_path}")
+
         # 2. Store the lines for our text files
         final_meta_lines.append(item["meta_line"])
         final_lst_lines.append(item["file_id"] + "\n")
@@ -146,6 +151,7 @@ def main():
         f.writelines(final_lst_lines)
 
     print("\n🎉 Process Complete!")
+    print(f"📂 Total files copied: {copy_cnt}")
     print(f"📄 Output Metadata: {OUTPUT_METADATA_FILE}")
     print(f"📄 Output LST:      {OUTPUT_LST_FILE}")
 
