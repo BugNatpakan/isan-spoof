@@ -7,6 +7,8 @@ from tqdm import tqdm
 # ⚙️ CONFIGURATION - DATASETS & RATIOS
 # ==========================================
 
+random.seed(42) # For reproducibility
+
 # Where all the copied audio files and text files will be saved separately
 root_output_dir = r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\experiment\E3"
 DEST_AUDIO_DIR = root_output_dir + r"\wav_all"
