@@ -7,6 +7,8 @@ from tqdm import tqdm
 # ⚙️ CONFIGURATION - PATH VARIABLES & RATIO
 # ==========================================
 
+random.seed(42)
+
 # 1. Define how many files of each class you want (This is your ratio limit)
 # For example: 1000 bonafide and 1000 spoof = 1:1 ratio
 TARGET_BONAFIDE_COUNT = 1000
