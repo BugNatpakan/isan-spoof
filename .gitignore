@@ -21,6 +21,8 @@ scripts/*.dic
 mlruns/
 scripts/*.db
 
+E4_old/
+
 *.zip
 
 *.old
