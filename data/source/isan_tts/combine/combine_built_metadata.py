@@ -8,6 +8,8 @@ import soundfile as sf  # <-- Added for WAV to FLAC conversion
 # ⚙️ CONFIGURATION - PATH VARIABLES & RATIO
 # ==========================================
 
+random.seed(42) # For reproducibility
+
 # 1. Define how many files of each class you want (This is your ratio limit)
 TARGET_BONAFIDE_COUNT = None
 TARGET_SPOOF_COUNT = None
@@ -17,7 +19,6 @@ SOURCE_WAV_DIRS = [
     r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\pure-rvc",
     r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\pure-tts",
     r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\tts-rvc",
-    r"D:\work\AI frontier\project AntiSpoof\isan-spoof\data\source\isan_tts\ex-1000"
 ]
 
 # 3. Target Destinations (Where the new FLAC files will go)
@@ -52,17 +53,18 @@ def main():
                 continue
                 
             # Extract the names of the folders
-            folder_name = os.path.basename(os.path.normpath(source_dir))
+            folder_name = os.path.basename(os.path.normpath(source_dir)) # e.g., 'pure-rvc'
             subfolder_name = os.path.basename(os.path.normpath(subdir_path))
             
             for filename in os.listdir(subdir_path):
                 if filename.endswith('.wav'):
-                    file_id = filename.replace('.wav', '')
+                    file_id = "isan_spoof_" + filename.replace('.wav', '')
                     
-                    # Store BOTH the path and the formatted speaker ID
+                    # Store path, speaker ID, AND the attack type (folder name)
                     available_files[file_id] = {
                         "path": os.path.join(subdir_path, filename),
-                        "speaker_id": folder_name + "_" + subfolder_name 
+                        "speaker_id": "isan_spoof_" + folder_name + "_" + subfolder_name,
+                        "attack_type": folder_name 
                     }
                 
     print(f"✅ Found {len(available_files)} total WAV files on disk.\n")
@@ -71,8 +73,6 @@ def main():
     bonafide_pool = []
     spoof_pool = []
     
-    # We don't need a metadata TSV file anymore! 
-    # Just loop through the files we already found on the hard drive.
     for file_id, file_info in available_files.items():
         
         # As requested: ALL files in these folders are spoof
@@ -82,6 +82,7 @@ def main():
             "file_id": file_id,
             "path": file_info["path"],
             "speaker_id": file_info["speaker_id"], 
+            "attack_type": file_info["attack_type"], # Pass the attack type here
             "label": label
         }
         
@@ -93,8 +94,8 @@ def main():
     random.shuffle(bonafide_pool)
     random.shuffle(spoof_pool)
     
-    selected_bonafide = bonafide_pool[:TARGET_BONAFIDE_COUNT]
-    selected_spoof = spoof_pool[:TARGET_SPOOF_COUNT]
+    selected_bonafide = bonafide_pool[:TARGET_BONAFIDE_COUNT] if TARGET_BONAFIDE_COUNT else bonafide_pool
+    selected_spoof = spoof_pool[:TARGET_SPOOF_COUNT] if TARGET_SPOOF_COUNT else spoof_pool
     
     final_selection = selected_bonafide + selected_spoof
     random.shuffle(final_selection) 
@@ -119,8 +120,10 @@ def main():
                 continue 
             
         # 2. Store the lines for our text files
-        # This creates the exact ASVspoof format: "SPEAKER_ID AUDIO_ID - spoof - "
-        final_meta_lines.append(item["speaker_id"] + " " + item["file_id"] + " - " + item["label"] + " - \n") 
+        # FORMAT: SPEAKER_ID  FILE_ID  ATTACK_TYPE  -  LABEL
+        meta_line = f"{item['speaker_id']} {item['file_id']} - {item['attack_type']} {item['label']}\n"
+        final_meta_lines.append(meta_line) 
+        
         final_lst_lines.append(item["file_id"] + "\n")
 
     with open(OUTPUT_METADATA_FILE, 'w', encoding='utf-8') as f:
