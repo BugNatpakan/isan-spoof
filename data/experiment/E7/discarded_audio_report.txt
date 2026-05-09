@@ -1,0 +1,9 @@
+=== PARTIALLY USED SPEAKERS (Discarded to Prevent Leaks) ===
+Speaker: thai_spoof_064  | Split: train  | Used [B:0    S:20  ] | Leftover [B:0    S:23  ]
+Speaker: thai_bonafide_081 | Split: train  | Used [B:25   S:0   ] | Leftover [B:25   S:0   ]
+Speaker: thai_spoof_001  | Split: dev    | Used [B:0    S:57  ] | Leftover [B:0    S:35  ]
+Speaker: thai_bonafide_012 | Split: dev    | Used [B:50   S:0   ] | Leftover [B:50   S:0   ]
+Speaker: thai_spoof_025  | Split: eval   | Used [B:0    S:65  ] | Leftover [B:0    S:35  ]
+Speaker: thai_bonafide_022 | Split: eval   | Used [B:24   S:0   ] | Leftover [B:76   S:0   ]
+
+Grand Total Discarded Files -> Bonafide: 151, Spoof: 93
