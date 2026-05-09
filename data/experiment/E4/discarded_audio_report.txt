@@ -1,0 +1,17 @@
+=== PARTIALLY USED SPEAKERS (Discarded to Prevent Leaks) ===
+Dataset: ASVspoof2019LA | Speaker: LA_0033         | Split: train | Used [B:146  S:1000] | Leftover [B:0    S:638 ]
+Dataset: ASVspoof2019LA | Speaker: LA_0043         | Split: train | Used [B:146  S:0   ] | Leftover [B:0    S:1638]
+Dataset: ASVspoof2019LA | Speaker: LA_0076         | Split: train | Used [B:140  S:0   ] | Leftover [B:0    S:1848]
+Dataset: ASVspoof2019LA | Speaker: LA_0082         | Split: train | Used [B:132  S:0   ] | Leftover [B:0    S:1176]
+Dataset: ASVspoof2019LA | Speaker: LA_0007         | Split: train | Used [B:68   S:0   ] | Leftover [B:0    S:936 ]
+Dataset: ASVspoof2019LA | Speaker: LA_0095         | Split: train | Used [B:132  S:0   ] | Leftover [B:0    S:1176]
+Dataset: ASVspoof2019LA | Speaker: LA_0094         | Split: train | Used [B:132  S:0   ] | Leftover [B:0    S:1176]
+Dataset: ASVspoof2019LA | Speaker: LA_0048         | Split: train | Used [B:9    S:0   ] | Leftover [B:59   S:936 ]
+Dataset: ai_for_thai    | Speaker: thai_bonafide_079 | Split: train | Used [B:27   S:0   ] | Leftover [B:23   S:0   ]
+Dataset: ai_for_thai    | Speaker: thai_spoof_016  | Split: train | Used [B:0    S:2   ] | Leftover [B:0    S:98  ]
+Dataset: ASVspoof2019LA | Speaker: LA_0074         | Split: dev   | Used [B:154  S:250 ] | Leftover [B:0    S:2234]
+Dataset: ASVspoof2019LA | Speaker: LA_0020         | Split: dev   | Used [B:96   S:0   ] | Leftover [B:50   S:1638]
+Dataset: ai_for_thai    | Speaker: thai_spoof_031  | Split: dev   | Used [B:0    S:8   ] | Leftover [B:0    S:76  ]
+Dataset: ai_for_thai    | Speaker: thai_bonafide_006 | Split: dev   | Used [B:83   S:0   ] | Leftover [B:7    S:0   ]
+Dataset: isan           | Speaker: isan_spoof_tts-rvc_m_017 | Split: dev   | Used [B:0    S:150 ] | Leftover [B:0    S:50  ]
+\Total Discarded Files -> Bonafide: 139, Spoof: 13620
